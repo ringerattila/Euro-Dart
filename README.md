@@ -1,4 +1,4 @@
 # Euro-Dart
-Első próbálkozás<br>
+Electronic soft-tip darts machine<br>
 Második sor
 Harmadik
