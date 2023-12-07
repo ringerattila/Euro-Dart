@@ -36,7 +36,7 @@
 <li>Tournament mode</li>
 <li>Lot of game types</li>
 </td>
-<td><img src="images/Euro-Dart_pic01.jpg" alt="alt szöveg" width="200" height="400"></td></tr></table>
+<td><img src="images/Euro-Dart_pic01.jpg" alt="alt szöveg" width="250" height="520"></td></tr></table>
 
 
 
