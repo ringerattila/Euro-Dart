@@ -1,7 +1,7 @@
 # Euro-Dart tournament-grade darts machine
 ## Electronic soft-tip darts machine<br>
 
-#### My job was the electronic design (schematic and PCB), supervising of electronic manufacture (PCBs, cables, connections), software development, and product management (create serial numbers, pin codes, documentation).
+#### My job was the electronic design (schematic and PCB), supervising of electronic manufacture (PCBs, cables, connections), software development, including game design, design test functions, design settings system, and product management (create serial numbers, pin codes, create handbook and documentation).
 
 <table><tr><td width="50%">
 <h4>Hardware</h4>
