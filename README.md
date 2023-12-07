@@ -17,9 +17,9 @@
 
 </style>
 
-<table><tr><td>
+<table><tr><td width="50%">
 <h4>Hardware</h4>
-<li>8051 microcontroller</li>
+<li>8052 microcontroller</li>
 <li>EPROM, SRAM, EEPROM</li>
 <li>Target-matrix, pushbuttons,</li>
 <li>LEDs, 7-segment displays</li>
@@ -29,8 +29,8 @@
 <h4>Software</h4>
 <li>8051 Assembly</li>
 <li>Non-volatile data storing</li>
-<li>Self-test function</li>
-<li>Setup/settings function</li>
+<li>Self-test functions</li>
+<li>Setup/settings functions</li>
 <li>Statistics functions</li>
 <li>Training mode</li>
 <li>Tournament mode</li>
