@@ -1,4 +1,4 @@
 # Euro-Dart
 Electronic soft-tip darts machine<br>
-Második sor
+8051 Assembly
 Harmadik
