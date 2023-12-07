@@ -1,6 +1,6 @@
 # Euro-Dart
-Első próbálkozás<br>
-Második sor
+Electronic soft-tip darts machine<br>
+8051 Assembly
 Harmadik
 <img src="images/Euro-Dart_pic01.jpg" alt="alt szöveg" width="200" height="400">
 
