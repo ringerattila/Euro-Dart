@@ -1,21 +1,7 @@
 # Euro-Dart tournament-grade darts machine
 ## Electronic soft-tip darts machine<br>
 
-<style>
-  table,
-  td,
-  tr,
-  tbody,
-  th
-   {
-    border-collapse: collapse;
-    padding: 0;
-    border-spacing: 0;
-    border: hidden;
-    background-color: white;
-  }
-
-</style>
+#### My job was the electronic design (schematic and PCB), supervising of electronic manufacture (PCBs, cables, connections), software development, and product management (create serial numbers, pin codes, documentation).
 
 <table><tr><td width="50%">
 <h4>Hardware</h4>
