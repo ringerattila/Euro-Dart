@@ -1,0 +1,12071 @@
+;****************************************************************
+;       Euro-Dart (C) Ringer Attila (C)1995-2023								*
+;****************************************************************
+
+	.include cons8051.inc	; 8051 ELORE DEFINIALT KONSTANSOK BETOLTESE
+        .include dartmac2.inc   ; VALTOZO DEKLARACIOK
+
+;*******************************************************/
+;	Belso RAM terulet (00-7f)
+
+;	00-1f 	regiszterek
+;	20-2f 	bitenkent cimezheto USER terulet
+;	30-5f 	renszervaltozok
+
+;*******************************************************/
+;	Sajat kituntetett ertekek
+
+STACK	EQU	46H ;
+
+COIN_MASK        EQU    3FH     ; ERMEVIZSGALO JELET TISZTAN KERJUK
+KEY_MASK         EQU    20H
+
+
+ST_FLAG		EQU	6000H	; STATUS JELZO BYTE CIME
+; ST_MODE       EQU     6001H   ; UZEMMOD JELZO BYTE
+ST_BRAM         EQU     6002H   ; BELSO RAM MENTESI HELYE, 80H BYTE
+ST_SRAM         EQU     4400H   ; SRAM MENTESI CIME (NEM VALTOZTATHATA!!!)
+
+; ST_VAN        EQU     55H     ; 55H, HA MEGADOTT HELYRE KELL LEPNI
+ST_NINCS        EQU     0H      ; NINCS FLAG, MEHET ELOLROL A GEP
+ST_SETUP        EQU     01H     ; SETUP MOD JELZESE
+ST_TEST         EQU     02H     ; TESZT MOD JELZESE
+ST_FREE         EQU     04H     ; SZABADJATEK
+ST_JATKOZ       EQU     10H     ; JATEKOS VALTO MODBA LEPJEN
+
+SRAM_BEG        EQU     6400H   ; SRAM-BOL HASZNALT TERULET KEZDETE
+SETNYIL         EQU     6400H   ; ADANDO NYILAK SZAMA (1 BYTE)
+BLA_DOB         EQU     6401H   ; BLACK OUT -NAL A DOBANDO SZAM
+BELEPETT        EQU     6500H   ; TABLAZAT, AMELY JELZI, HOGY EGY JATEKOS
+                                ; BELEPETT-E MAR  (8X1 BYTE) (NE VALTOZZON!)
+
+VALTOZOK        EQU     6600H   ; ITT KEZDODIK A VALTOZOK TERULETE
+
+PONT1	        EQU	6600H	; (FIX) PONTSZAM TERULET  ((1+9)X2 BYTE)
+TEAMPONT        EQU     6620H   ; CSAPATPONTSZAMOK TAROLASA   (4X2 BYTE)
+JATENG          EQU     6650H   ; AZ EGYES JATEKOK ENGEDELYEZETT ALLAPOTANAK
+                                ; TABLAZATA 0-TILTOTT JATEK, 1- ENGEDELYEZETT
+
+SZJEGY          EQU     6660H   ; ATMENETI VALTZO, 1 BYTE
+NYIL_FAZIS      EQU     6661H   ; 1 BYTE
+LAM_FAZIS       EQU     6662H   ; 1 BYTE
+HANG_FAZIS      EQU     6663H   ; 1 BYTE
+CT1             EQU     6664H   ; CELTABLA ADAT
+CT2             EQU     6665H   ; CELTABLA ADAT
+CT3             EQU     6666H   ; CELTABLA ADAT
+CT4             EQU     6667H   ; CELTABLA ADAT
+CT5             EQU     6668H   ; CELTABLA ADAT
+CT6             EQU     6669H   ; CELTABLA ADAT
+CT7             EQU     666AH   ; CELTABLA ADAT
+CT8             EQU     666BH   ; CELTABLA ADAT
+W_RAND          EQU     666CH   ; VELETLEN SZAM SORSOLASHOZ
+OLD_PT          EQU     666DH   ; 301-ESNEL ELOZO PONTSZAM TAROLASA
+OLD_PS          EQU     666EH   ; UGYANEZ
+LETS            EQU     666FH   ; LETS PLAY FELIRAT MUTATO, 1 BYTE
+OLD_CR          EQU     6670H   ; CRICKET SZORZO TAROLAS
+DOB_IDO         EQU     6671H   ; SZAMOLJA A DOBASRA VARAKOZAS IDEJET
+JAT_SORSZ       EQU     6672H   ; A VALASZTOTT JATEK SORSZAMAT TARTOLJA
+SETUP_DIS       EQU     6673H   ; =0, HA TILTVA VAN A SETUPSAVE, 55H, HA NEM
+
+MAX_BASE        EQU     6673H   ; MAXERME VALTOZOK BAZISCIME
+MAXERME_CH1     EQU     6674H   ; ERMEVIZSG. CH1 MAX. ERMESZAM
+MAXERME_CH2     EQU     6675H   ; ERMEVIZSG. CH2 MAX. ERMESZAM
+MAXERME_CH3     EQU     6676H   ; ERMEVIZSG. CH3 MAX. ERMESZAM
+MAXERME_CH4     EQU     6677H   ; ERMEVIZSG. CH4 MAX. ERMESZAM
+MAXERME_CH5     EQU     6678H   ; ERMEVIZSG. CH5 MAX. ERMESZAM
+MAXERME_CH6     EQU     6679H   ; ERMEVIZSG. CH6 MAX. ERMESZAM
+
+KREDIT_BASE     EQU     6679H   ; KREDIT VALTOZOK BAZISCIME
+KREDIT_CH1      EQU     667AH   ; ERMEVIZSG. CH1 KREDIT EGYSEGE
+KREDIT_CH2      EQU     667BH   ; ERMEVIZSG. CH2 KREDIT EGYSEGE
+KREDIT_CH3      EQU     667CH   ; ERMEVIZSG. CH3 KREDIT EGYSEGE
+KREDIT_CH4      EQU     667DH   ; ERMEVIZSG. CH4 KREDIT EGYSEGE
+KREDIT_CH5      EQU     667EH   ; ERMEVIZSG. CH5 KREDIT EGYSEGE
+KREDIT_CH6      EQU     667FH   ; ERMEVIZSG. CH6 KREDIT EGYSEGE
+KRED_FLOWCH1    EQU     6680H   ; KREDIT LEPESEK FOLYAMA   (10 BYTE)
+KRED_FLOWCH2    EQU     6690H   ; KREDIT LEPESEK FOLYAMA
+KRED_FLOWCH3    EQU     66A0H   ; KREDIT LEPESEK FOLYAMA
+KRED_FLOWCH4    EQU     66B0H   ; KREDIT LEPESEK FOLYAMA
+KRED_FLOWCH5    EQU     66C0H   ; KREDIT LEPESEK FOLYAMA
+KRED_FLOWCH6    EQU     66D0H   ; KREDIT LEPESEK FOLYAMA
+
+KRED_MSB        EQU     66H
+KREDCH1_LSB     EQU     80H
+KREDCH2_LSB     EQU     90H
+KREDCH3_LSB     EQU     A0H
+KREDCH4_LSB     EQU     B0H
+KREDCH5_LSB     EQU     C0H
+KREDCH6_LSB     EQU     D0H
+KRFL_MSB        EQU     66H     ; A KRED_FLOW-T NE VALTOZTASD MEG !!!
+
+
+HAL_FORR        EQU  6700H  ; VELETLENSZAM GENERALASHOZ TABLAZAT (32 BYTE)
+HAL_CEL         EQU  6720H  ; EZ IS AHHOZ KELL
+T_PPD           EQU  67A0H  ; POINT PER DART TAROLAS (24BYTE)
+T_PPR           EQU  67C0H  ; POINTS PER ROUND (24BYTE)
+T_PER           EQU  67E0H  ; GOOD HIT RATIO (24BYTE)
+
+CRTABLA     EQU  6800H  ; CRICKET LEDEK NYILVANTARTASA (8X8 BYTE) (FIX)
+CRZART      EQU  6840H  ; CRICKET SZAMOK LEZARTSAGAT JELZI (8X8 BYTE, 1=ZART)
+ZARTOFS     EQU  40H    ; ZARTSAG JELZO TABLA ELTOLASA A PONTTABLAHOZ KEPEST
+WIN         EQU  68A0H  ; GYOZELEM JELZESERE SZOLGALO TOMB  (9BYTE)
+TEAMWIN     EQU  68B0H  ; GYOZELEM JELZESE TEAM ESETEN (4 BYTE)
+SHAWIN      EQU  68C0H  ; SHANGHAI GYOZELEM-VIZSGALAT (4 BYTE)
+GNYIL       EQU  68D0H  ; 01 JATEKOKNAL NYILSZAM NYILVANTARTAS (8 BYTE)
+
+JATSZIK       EQU  6900H  ; =1, HA AZ ADOTT JATEKOS SZEREPEL A (8 BYTE)
+MOD_KMAX      EQU  6910H  ; A JKORMAX BEKAPCS. UTANI VALTOZATA
+
+; SZAB_KRED   EQU  6A00H  ; SZABADJATEK ALATTI KREDIT
+KREDBUF       EQU  6A10H  ; KREDITSZAM KIIRAS ALATTI PUFFER (3 BYTE)
+ERME_BON      EQU  6A15H  ; AJANDEK KREDIT SZAMLALOJA
+CH_NUM        EQU  6A16H  ; CSATORNASZAM VALTOZOJA ELEKTR. ERM. VIZSGALONAL
+
+; INNEN KEZDVE MENTI AZ EEPROMBA AZ ADATOKAT A GEP !!!
+; KIMENTETT CIMTATOMANY: 6B00H - 6BFFH  (256 BYTE)
+MEMPLACE       EQU    6B00H
+MEM_MSB        EQU    6BH
+MONEY_PLACE    EQU    6BC0H
+
+; GYARI BEALLITASSAL IS RENDELKEZO PARAMETEREK
+JKORMAX     EQU  6B00H  ; ENNYI KORBOL ALL A JATEK  ( 24 BYTE )
+JKREDIT     EQU  6B18H  ; ENNYI KREDIT KELL EGY JATEKOSRA  (24 BYTE)
+SPBULL      EQU  6B30H  ; OSZTOTT BULL EYE BEALLITAS TAROLASA (24 BYTE)
+CHAMP_SET   EQU  6B47H  ; VERSENY ALLAPOT. AZ ELOZO TOMB UTOLSO BYTE-JA
+PASS_WD     EQU  6B48H  ; KELL-E PASSWD (1= IGEN)
+INF_MODE    EQU  6B49H  ; INFRA MUKODESI MOD (1-2-3)
+VALT_KES    EQU  6B4AH  ; VALTASKORI KESLELTETES (4-8 SEC)
+SZUN_SZIR   EQU  6B4BH  ; JATEKSZUNETBEN SZIRENAZAS
+OPT_ROUND   EQU  6B4CH  ; PLUSZ KOROK NEHEZITESKOR (1 BYTE)
+MEG_ORZ     EQU  6B4DH  ; A JATEK ALLAPOTA MEGORZODIK KIKAPCSOLAS UTAN IS
+SORS_JAT    EQU  6B4EH  ; JATEK VEGEN SORSOLAS (1-IGEN)
+AJA_KRED    EQU  6B4FH  ; ENNYI JATEK UTAN AJANDEK KREDIT ( 0 - 99)
+CR_MINDZAR  EQU  6B50H  ; KRIK. EGY SZAM LEZARASAHOZ MINDENKINEK ZARNI KELL
+CR_GYZAR    EQU  6B51H  ; KRIK. A GYOZELEMHEZ MINDKET JATEKOSNAK ZARNI KELL
+WIN_ZENE    EQU  6B52H  ; A GYOZTES ZENE SORSZAMA (1 BYTE, 1-5)
+STAT_EN     EQU  6B53H  ; STATISZTIKA KIJELZES ENGEDELYEZES (1 BYTE)
+SPEAK_EN    EQU  6B54H  ; BESZEDHANG ENGEDELYEZES (1BYTE)
+FEL_DOB     EQU  6B55H  ; LEGYEN-E BULLRA DOBAS AZ ELEJEN (1 BYTE)
+NO_DARTS    EQU  6B56H  ; NYILELFOGYAS HANGJA (1 BYTE)
+ERM_BASE    EQU  6B57H  ; ERM_KRED VALTOZOK BAZISCIME
+ERM_KRED1   EQU  6B57H  ; ERME-KREDIT ARANY CH1
+ERM_KRED2   EQU  6B58H  ; ERME-KREDIT ARANY CH2
+ERM_KRED3   EQU  6B59H  ; ERME-KREDIT ARANY CH3
+ERM_KRED4   EQU  6B5AH  ; ERME-KREDIT ARANY CH4
+ERM_KRED5   EQU  6B5BH  ; ERME-KREDIT ARANY CH5
+ERM_KRED6   EQU  6B5CH  ; ERME-KREDIT ARANY CH6
+GYAR_SZAM   EQU  6B5DH  ; GYARI SZAMOT TAROLO BYTE-OK 3 DB
+
+; GYARI BEALLITASSAL NEM RENDELKEZO PARAMETEREK
+JAT_NEPSZ   EQU  6B60H  ; JATEKOK NEPSZERUSEGET TAROLJA (24*3 BYTE)
+UZEM_ORA    EQU  6BA8H  ; UZEMORA SZAMLALO, PASSZIV (3+1 BYTE)
+UZEM_SZAM   EQU  6BACH  ; UZEMELTETOI SZAM    ( 1 - 99)      (1BYTE)
+ZENE_SOR    EQU  6BADH  ; A KOVETKEZO ZENE SORSZAMA
+PAS_ORA     EQU  6BAEH  ; UZEMORA SZAMLALO, AKTIV   (3+1 BYTE)
+GAME_ALL    EQU  6BB2H  ; OSSZES EDDIGI JATEK SZAMLALOJA (3 BYTE)
+GAME_NAPI   EQU  6BB5H  ; OSSZES EDDIGI JATEK SZAMLALOJA (3 BYTE)
+GAME_FREE   EQU  6BB8H  ; EDDIGI SZABADJATEKOK SZAMA (3 BYTE)
+CRED_FREE   EQU  6BBBH  ; SZABADJATEKOKHOZ FELHASZNALT KREDITEK SZAMA (3BYTE)
+CH_SUM      EQU  6BBEH  ; CHECKSUM ELLENORZO OSSZEG
+
+;KEY_NAPI    EQU  6BC0H  ; KULCSOS KAPCSOLO NAPI SZAMLALOJA   (3BYTE)
+;KEY_ALL     EQU  6BC3H  ; KULCSOS KAPCSOLO OSSZES KREDIT SZAMLALOJA (3BYTE)
+CHNAP_BASE  EQU  6BC6H  ; NAPI SZAMLALOK BAZISCIME - NE VALTOZZON !
+CH1_NAPI    EQU  6BC6H  ; 1-ES CSATORNA ERMEVIZSGALO NAPI SZAMLALO (3 BYTE)
+CH2_NAPI    EQU  6BC9H  ; 2-ES CSATORNA ERMEVIZSGALO NAPI SZAMLALO (3 BYTE)
+CH3_NAPI    EQU  6BCCH  ; 3-AS CSATORNA ERMEVIZSGALO NAPI SZAMLALO (3 BYTE)
+CH4_NAPI    EQU  6BCFH  ; 4-ES CSATORNA ERMEVIZSGALO NAPI SZAMLALO (3 BYTE)
+CH5_NAPI    EQU  6BD2H  ; 5-OS CSATORNA ERMEVIZSGALO NAPI SZAMLALO (3 BYTE)
+KEY_NAPI    EQU  6BD5H  ; 6-OS CSATORNA ERMEVIZSGALO NAPI SZAMLALO (3 BYTE)
+
+CH1_ALL     EQU  6BD8H  ; BAL ERMEVIZSGALO OSSZES KREDIT SZAMLALOJA (3BYTE)
+CH2_ALL     EQU  6BDBH  ; JOBB ERMEVIZSGALO OSSZES KREDIT SZAMLALOJA (3BYTE)
+CH3_ALL     EQU  6BDEH  ; 3-OS CSATORNA ERMEVIZSGALO OSSZES SZAMLALO (3 BYTE)
+CH4_ALL     EQU  6BE1H  ; 4-ES CSATORNA ERMEVIZSGALO OSSZES SZAMLALO (3 BYTE)
+CH5_ALL     EQU  6BE4H  ; 5-OS CSATORNA ERMEVIZSGALO OSSZES SZAMLALO (3 BYTE)
+KEY_ALL     EQU  6BE7H  ; 6-OS CSATORNA ERMEVIZSGALO OSSZES SZAMLALO (3 BYTE)
+ERME_BA     EQU  6BE9H  ; ERMEALLASOK BAZISCIME
+ERME_CH1    EQU  6BEAH  ; 1-ES CSATORNA ERMESZAM ALLASA
+ERME_CH2    EQU  6BEBH  ; 2-ES CSATORNA ERMESZAM ALLASA
+ERME_CH3    EQU  6BECH  ; 3-AS CSATORNA ERMESZAM ALLASA
+ERME_CH4    EQU  6BEDH  ; 4-ES CSATORNA ERMESZAM ALLASA
+ERME_CH5    EQU  6BEEH  ; 5-OS CSATORNA ERMESZAM ALLASA
+KR_EDIT     EQU  6BEFH  ; AKTUALIS KREDIT MENNYISEG - UA. MINT A KREDIT
+
+; ERME_CH6    EQU  6BEFH  ; 6-OS CSATORNA ERMESZAM ALLASA
+
+; ** 6BFF ** EEPROMBA MENTETT MEMORIA VEGE
+
+S_DISP        EQU   7000H  ; MENTETT MEMORIA KEZDOCIME  (110 BYTE)
+OLD_JNUM      EQU   7100H  ; JNUM MENTESE   (1 BYTE)
+OLD_AKTKOR    EQU   7101H  ; AKTKOR MENTESE (1 BYTE)
+OLD_KREDIT    EQU   7102H  ; AZ ELOZO JATEKHOZ ENNYI KREDIT KELLETT
+OLD_MAXJAT    EQU   7103H  ; ENNYIEN JATSZOTTAK AZ ELOZO JATEKOT
+REP_LEHET     EQU   7104H  ; ITT SZAMOLJA A REPLAY NYOMKODAST
+
+; N_DISP     EQU   7400H  ; UJ DISPLAY MEMORIA CIME
+; N_DIS_MSB  EQU   74H
+
+
+LEPTETO       EQU      15             ; LEPTETOGOMB
+
+MVTIME        EQU      15              ; ENNYI TIZEDET VAR ERMEV. HIBA ELOTT
+VTIME         EQU      3               ; VILLOGAS PERIODUSIDEJE
+RESWAIT       EQU      12              ; ENNYI VTIME-OT VAR RESET ELOTT
+SKIPWAIT      EQU      8
+POLAM         EQU      5               ; ENNYI TIZEDIG EG A PONTSZAM LAMPA
+
+;* JATEKOK ELNEVEZESE ES AZONOSITASA
+GAME_HISCORE         EQU       1          ;  HIGH SCORE
+GAME_LOSCORE         EQU       2          ;  LOW SCORE
+GAME_301             EQU       3          ;  301
+GAME_501             EQU       4          ;  501
+GAME_701             EQU       5          ;  701
+GAME_901             EQU       6          ;  901
+GAME_SHANGHAI        EQU       7          ;  SHANGHAI
+GAME_PUB             EQU       8          ;  PUB GAME
+GAME_CRICKET21       EQU       9          ;  NO SCORE CRICKET
+GAME_CRICKET         EQU       10          ; CRICKET
+GAME_CRICKETTH       EQU       11          ; CRICKET CUT-THROAT
+GAME_FIVES           EQU       12          ; FIVES
+GAME_BLO_CRICKET     EQU       13          ; BLOCK OUT CRICKET
+GAME_HALVES          EQU       14          ; HALVE
+GAME_ABS_CRICKET     EQU       15          ; ABSURD CRICKET
+GAME_TRENING_DN      EQU       16          ; TRAINIG DOWN
+GAME_301PARC         EQU       17          ; 301 PARCHESSI
+GAME_HARD_SCORE      EQU       18          ; HARD SCORE
+GAME_FLASH_GAME      EQU       19          ; FLASH GAME
+GAME_PAIR_CRIC       EQU       20          ; PAIR CRICKET
+GAME_REDMASTER       EQU       21          ; REDMASTER
+GAME_BULLMASTER      EQU       22          ; BULLMASTER
+GAME_TRENING_UP      EQU       23          ; TRAINING UP
+
+;********************************************************
+; IZZOKEZELES
+
+IZNOSCORE1      EQU     14
+IZNOSCORE2      EQU     10
+IZBULLEYE       EQU     12
+IZTILOS         EQU     13
+IZSZABAD        EQU     11
+
+IZREPLAY        EQU     9
+IZHIS           EQU	8
+IZGOMB8	        EQU	8
+IZSHA 		EQU	7
+IZGOMB7	        EQU	7
+IZ301		EQU	6
+IZGOMB6         EQU	6
+IZCRI		EQU	5
+IZGOMB5         EQU	5
+IZBAS		EQU	4
+IZGOMB4         EQU	4
+IZFIV           EQU	3
+IZGOMB3         EQU	3
+IZHAL		EQU	2
+IZDIN           EQU     2
+IZGOMB2         EQU	2
+IZGOMB1         EQU	1
+IZDOUT          EQU     1
+
+IZVALTO		EQU	15
+IZGOMB15        EQU     15
+IZGOMB16        EQU     16
+IZMAS           EQU     16
+IZEQU           EQU     4
+IZTEAM          EQU     3
+
+EQUBIT          EQU     A3       ; NEHEZITESEK VIZSGALATAHOZ
+TEAMBIT         EQU     A4
+DINBIT          EQU     A2
+DOUTBIT         EQU     A1
+MASBIT          EQU     A0
+
+;*******************************************************/
+;	BITENKENT CIMEZHETO TERULET DEFINICIOI
+
+; PROGRAM EQU 0H	; MEGVALTOZTATNI TILOS ! ( A MONITOR PROGRAM HASZNALJA)
+; PROGX	EQU 1H	; MEGVALTOZTATNI TILOS! ( A MONITOR PROGRAM HASZNALJA)
+
+; 00H-07H -IG A 20H REGISZTER TARTALMAZZA A BIT VALTOZOKAT :
+P_DEMO          EQU     00H     ; =1, HA DEMO FAZISBAN VAGYUNK-(NINCS KREDIT)
+P_JATEK         EQU     01H     ; =1, HA JATEK FAZIS VAN (AKTIV FAZIS)
+P_SETUP		EQU	02H	; =1, HA
+P_TEST          EQU     03H     ; =1, HA TESZT ALLAPOT VAN
+P_VEGE          EQU     04H     ; =1, HA VEGE A JATEKNAK
+P_FREEGAME      EQU     05H     ; =1, HA SZABADJATEK VAN
+FELDOBAS        EQU     06H     ; =1, HA FELDOBAST KERTEK A JATEK ELOTT
+SKIP            EQU     07H     ; =1, HA SKIP LEGYEN
+DOBJON          EQU     08H     ; =1, HA ERVENYES NYILAK VANNAK
+LEGELSO         EQU     09H     ; =1, HA MEG NEM DOBTAK EL AZ ELSO NYILAT
+BACK_STEP       EQU     0AH     ; =1,HA VISSZA KELL LEPNI A JATEK VALASZTASRA
+HASZNOS         EQU     0BH     ; =1, HA A CRICKET JATEKBAN HASZNOS A DOBAS
+NOCRED          EQU     0CH     ; =1, HA NEM DOBTAK PENZT
+PUB_GAME        EQU     0DH     ; =1, HA PUB_GAME VAN KIVALASZTVA
+VANHANG         EQU     0EH     ; =1, HA SZOL VALAMELYIK HANG
+KAPCS_VESZ      EQU     0FH     ; =1, HA KAPCSOLOVAL VETTEK EL A NYILAKAT
+
+ADAS            EQU  10H
+VETEL           EQU  11H
+
+FLAGTIM         EQU 12H
+GYOZEQ          EQU 13H
+CHAMP           EQU 14H         ; =1, HA A VERSENYBEALLITASOK KELLENEK
+
+LOW_WIN         EQU     15H     ; =1, HA A KEVESEBB PONTSZAM NYER
+TOOMUCH         EQU     16H     ; =1, HA CSAK A FELSO KIJELZO JATSZIK
+NO_LIMIT        EQU     17H     ; =1, HA MEG NEM ENGEDTUK EL A GOMBOT
+PLUSZ           EQU     18H     ; =1, HA A PONTOK FELFELE NONEK
+GYOZOTT         EQU     19H     ; =1, HA AZ AKT. JATEKOS NYERT.
+CRGYOZ          EQU     1AH     ; =1, HA A JATEKOS MINDEN LEDJE EG
+TILT            EQU     1BH     ; ALTALANOS HASZNALATU, -1, HA TILTUNK
+MINDKI          EQU     1CH     ; =1, HA A CSAPAT MINDKET TAGJANAK KI KELL
+                                ; MENNI A GYOZELEMHEZ
+VANGYOZ         EQU     1DH     ; =1, HA EQUAL JATEKNAL MAR VAN GYOZTES
+ROSSZDOB        EQU     1EH     ; =1, HA HASZONTALANT DOBTAK
+KISZ_HAT        EQU     1FH     ; =1,
+
+NULLNYIL	EQU	20H     ; =1, HA A HAROM DOBAS KOZOTT NULLAS IS VOLT
+ELVESZNYIL	EQU	21H     ; =1, HA A MARADEK NYILAK ELVEHETOK
+MINDZAR		EQU	22H     ; =1, HA MINDEN ELLENFELNEK LE KELL ZARNI
+LEZARVA	        EQU	23H     ; =1. HA A VIZSGALT SZAM LEVAN ZARVA
+FLAG10P         EQU     24H     ; TIZPERC ELTELTENEK JELZESERE
+MECH_SEL 	EQU	25H	; =1, HA MECH. ERMEVIZSG. VAN, =0, HA ELEKTR.
+INFJEL          EQU     26H     ; INFJEL=1, HA AZ INFRASENSOR JELET AD
+LEPHET          EQU     27H     ; =1, HA LEPHETUNK A KOV. JATEKOSRA
+SVILLOG         EQU     28H     ; VILLOGASOK AKTUALIS ALLAPOTA
+DOUBIN          EQU     29H     ; DOUBLE IN
+DOUBOUT         EQU     2AH     ; DOUBLE OUT
+NOSCORE         EQU     2AH
+MASTOUT         EQU     2BH     ; MASTER OUT
+CUTTH           EQU     2BH     ; CUT THORAT CRICKET
+TEAM            EQU     2CH     ; TEAM
+TULCSOR         EQU     2DH     ; CSOKKENO PONTSZAMOKNAL TULCSORDULAS
+NULLALETT       EQU     2EH     ; CSOKKENO PONTSZAMOKNAL NULLA LETT A KIVONAS
+EQUAL           EQU     2FH     ; =1, HA A 01-ES JATEKOKNAL EQUAL LESZ
+
+TR_DOWN         EQU     30H     ; =1, HA TRENING DOWN
+CR_BUNT         EQU     31H     ; =1, HA CRICKETBEN VOLT BUNTETOPONT FELIRAS
+LED_INV         EQU     32H     ; =1, HA INVERTALNI KELL A LEDEKET
+FLASH_GAME      EQU     33H     ; =1, HA FLASH GAME VAN
+CRIC_GROUP      EQU     34H     ; =1, HA VALAMILYEN CRICKET JATEK LESZ
+PAIR_CR         EQU     35H     ; =1, HA PAIR CRICKET (RESZLEGES KIJELZES)
+RED_ONLY        EQU     36H     ; =1, HA CSAK A PIROS LEDEKET JELEZZUK KI
+LED_ALL         EQU     37H     ; =1, HA MINDEN SZINU LED KIJELEZHETO
+VAN_LED21       EQU     38H     ; =1, HA VALAKINEK VAN 21 LEDJE (KIMENT)
+VAN_REP         EQU     39H     ; =1, HA REPLAY GOMB VAN
+REP_CUR         EQU     3AH     ; =1, HA AZ AJT. PALYA UJRA JATSZHAT
+REP_PREV        EQU     3BH     ; =1, HA AZ ELOZO  PALYARA KELL VISSZAMENNI
+KAP_SHIFT       EQU     3CH     ; =1, HA A VALTOGOMBOT NYOMTAK
+
+OLD_EQUAL       EQU     3DH     ; =1, HA AZ ELOZO JATEKBAN EQUAL VOLT
+OLD_TEAM        EQU     3EH     ; =1, HA AZ ELOZO JATEKBAN TEAM  VOLT
+OLD_DOUBIN      EQU     3FH     ; =1, HA AZ ELOZO JATEKBAN DOUBLE IN VOLT
+OLD_DOUBOUT     EQU     43H     ; =1, HA AZ ELOZO JATEKBAN DOUBLE OUT VOLT
+OLD_MASTOUT     EQU     44H     ; =1, HA AZ ELOZO JATEKBAN MASTER OUT VOLT
+KELL_MONEY      EQU     45H     ; =1, HA KELL MEG PENZ A REPLAY-HEZ
+REP_MEGINT      EQU     46H     ; =1, HA MEGNYOMHATO A REPLAY GOMB
+
+;  ITT MEHETNEK A BITEK 47H-IG !!!
+
+;*******************************************************/
+;	RendszerVALTOZOk
+
+AREG        EQU    45H ; 49H
+CREG        EQU    29H ; 4AH
+DREG        EQU    2AH ; 4BH
+JATAKT      EQU    2BH ; 4CH
+; SZAMJEGY TAROLOK
+SZAZAS      EQU    2CH ;4DH
+TIZEGY      EQU    2DH ; 4EH
+NYILSZAM    EQU    2EH ;4FH      ; MEGADJA, HANY NYILAT ADJUNK A JATEKOSNAK
+NRDART      EQU    2FH ;50H      ; SZAMOLJA, HANY DARDA MENT KI EDDIG
+
+MP		EQU	30H
+PERC		EQU	31H
+ORA		EQU	32H
+NUM		EQU	33H
+SNUM            EQU     34H
+JNUM		EQU	35H	; AKTUALIS JATEKOS SORSZAMA
+SEG	 	EQU	36H
+VEZBYTE		EQU	37H     ; HANG IC VEZERLOBYTE ALLAPOTA
+SL6DATA		EQU	38H	;
+MAXJAT		EQU	39H	; RESZT VEVO JATEKOSOK SZAMA
+KEY		EQU	3AH	; AZ AKUALIS KEZELENDO NYOMOGOMB SZAMA
+AKTKOR          EQU	3BH     ; AZ AKTUALIS KOR SZAMA 1-7 (1-21)
+KESLEL          EQU     3CH     ; A JATEK MAXIMALIS KOREINEK SZAMA (7,10,21)
+
+KREDIT 		EQU	3DH	 ; A GEPBEN LEVO KREDITEK SZAMA (0-255)
+BREG            EQU     3EH      ; ATMENETI TAROLO REGISZTEREK
+CTPONT		EQU	3FH
+
+SL0DATA		EQU	40H	; PORT ADATOK MASOLATA
+SL1DATA		EQU	41H
+SL2DATA		EQU	42H
+SL3DATA		EQU	43H
+SL4DATA		EQU	44H
+
+;		Vektorok
+
+		ORG 0000H	; reset
+RESET		ljmp start
+
+		ORG 0003H	; ext.int.0
+		ljmp extint0
+
+		ORG 000bH	; timer 0
+		ljmp timer0int
+
+		ORG 0013H	; ext.int.1
+		ljmp extint1
+
+		ORG 001bH	; timer 1
+		ljmp timer1int
+
+		ORG 0023H	; soros port
+		ljmp sorosint
+
+;*******************************************************/
+;	String ertekadasok
+		ORG 0030H
+
+str00	DB	' EURO-DART V8.5 '
+str01	DB	'   <c> 1999     '
+STR02   DB      '  AQUILA SOFT   '
+STR03   DB      ' INTERNATIONAL  '
+
+VER     EQU     str00 + 12       ; A VERZIOSZAM ELTOLASA
+
+;*******************************************************/
+
+              ORG  0070H
+; KONVERZIOT KIJELOLO TABLAZAT
+T_CONV     DB    0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0
+           DB    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+; 32 BYTE
+
+; MEGADJA, HOGY EGY JATEKOSNAK KI A TARSA
+TEAMTARS   DB    0, 3, 4, 1, 2, 7, 8, 5, 6
+; 9 BYTE
+
+; A CSAPAT SORSZAMAHOZ TARTOZO JATEKOSOK EGY BYTE-BA SURITVE
+CSAPAT     DB    0, 13H, 24H, 57H,  68H
+; 5 BYTE
+
+; MEGADJA, HOGY EGY JATEKOS HANYAS SZAMU CSAPAT  TAGJA
+MELYTEAM   DB    0,  1,   2,   1,   2,   3,   4,   3,   4
+; 9 BYTE
+
+NY_JNUM     DB     0,  1,  2,  3,  4,  1,  2,  3,  4
+NY_SEG      DB     0,  0,  0,  0,  0,  1,  1,  1,  1
+
+; 18 BYTE
+
+BB_CONV      DB   0
+             DB   B_HISCORE
+             DB   B_LOSCORE
+             DB   B_301
+             DB   B_501
+             DB   B_701
+             DB   B_901
+             DB   B_SHANGHAI
+             DB   B_PUB
+             DB   B_CRICKET21
+             DB   B_CRICKET
+             DB   B_CRICKETTH
+             DB   B_FIVES
+             DB   B_BLO_CRICKET
+             DB   B_HALVES
+             DB   B_ABS_CRICKET
+             DB   B_TRENING_DN
+             DB   B_301PARC
+             DB   B_HARD_SCORE
+             DB   B_FLASH_GAME
+             DB   B_PAIR_CRIC
+             DB   B_REDMASTER
+             DB   B_BULLMASTER
+             DB   B_TRENING_UP
+; 24 BYTE
+
+B_OFS           EQU    0                ; SZOVEGEK ELTOLASA A HANG IC-BEN
+
+; A SZOVEGEK CIMEI A HANG IC-BEN
+B_ADDR          DB    0,  B_OFS+   3      ;  1. DOUBLE
+                DB    0,  B_OFS+  11      ;  2. TRIPLE
+                DB    0,  B_OFS+  20      ;  3. BULL
+                DB    0,  B_OFS+  28      ;  4. TOO MUCH
+                DB    0,  B_OFS+  40      ;  5. OH NO
+                DB    0,  B_OFS+  50      ;  6. YEE
+                DB    0,  B_OFS+  59      ;  7. THANK YOU
+                DB    0,  B_OFS+  69      ;  8. GIVE MONEY
+                DB    0,  B_OFS+  82      ;  9. HI SCORE
+                DB    0,  B_OFS+  94      ; 10. LO SCORE
+                DB    0,  B_OFS+  106     ; 11. SHANGHAI
+                DB    0,  B_OFS+ 117      ; 12. PUB GAME
+                DB    0,  B_OFS+ 127      ; 13. 301
+                DB    0,  B_OFS+ 138      ; 14. 501
+                DB    0,  B_OFS+ 149      ; 15. 701
+                DB    0,  B_OFS+ 162      ; 16. 901
+                DB    0,  B_OFS+ 173      ; 17. CRICKET
+                DB    0,  B_OFS+ 182      ; 18. 301 PARCHESS
+                DB    0,  B_OFS+ 200      ; 19. FIVES
+                DB    0,  B_OFS+ 208      ; 20. HALVE
+                DB    0,  B_OFS+ 216      ; 21. BULLMASTER
+                DB    0,  B_OFS+ 229      ; 22. NO SCORE CRICKET
+                DB    0,  B_OFS+ 243      ; 23. CUT THROAT CRICKET
+                DB    1,  B_OFS+ 258-256  ; 24. 01 EQUAL
+                DB    1,  B_OFS+ 272-256  ; 25. TEAM
+                DB    1,  B_OFS+ 280-256  ; 26. DOUBLE IN
+                DB    1,  B_OFS+ 289-256  ; 27. DOUBLE OUT
+                DB    1,  B_OFS+ 300-256  ; 28. MASTER OUT
+                DB    1,  B_OFS+ 312-256  ; 29. LETS GO DRINK
+                DB    1,  B_OFS+ 338-256  ; 30. CONGRATULATION
+                DB    1,  B_OFS+ 338-256  ; 31. YOU ARE THE BEST
+                DB    1,  B_OFS+ 338-256  ; 32. BONUS CREDIT
+                DB    1,  B_OFS+ 358-256  ; 33. EXTRA CREDIT
+                DB    1,  B_OFS+ 377-256  ; 34. BAD SEGMENT
+                DB    1,  B_OFS+ 394-256  ; 35. BAD BUTTON
+                DB    1,  B_OFS+ 406-256  ; 36. BAD COIN SELECTOR
+                DB    1,  B_OFS+ 421-256  ; 37. ERROR
+                DB    1,  B_OFS+ 430-256  ; 38. POINTS PER DART
+                DB    1,  B_OFS+ 446-256  ; 39. POINTS PER ROUND
+                DB    1,  B_OFS+ 464-256  ; 40. GOOD HITS IN PERCENT
+                DB    1,  B_OFS+ 479-256  ; 41. HARD SCORE
+                DB    1,  B_OFS+ 491-256  ; 42. FLASH GAME
+                DB    1,  B_OFS+ 501-256  ; 43. TRAINING DOWN
+                DB    2,  B_OFS+ 515-512  ; 44. TRAINING UP
+                DB    2,  B_OFS+ 526-512  ; 45. REDMASTER
+                DB    2,  B_OFS+ 538-512  ; 46. PAIR CRICKET
+                DB    2,  B_OFS+ 549-512  ; 47. BLACK OUT CRICKET
+                DB    2,  B_OFS+ 564-512  ; 48. ABSURD CRICKET
+                DB    2,  B_OFS+ 578-512  ; 49. YESS
+                DB    2,  B_OFS+ 588-512  ; 50. REPLAY
+                DB    2,  B_OFS+ 587-512  ; 51. BACKSTEP
+
+; 80 BYTE
+
+T_BUBO    DB      0,1,2,1,  0,0,0,0,  0,0,0,0,  0,0,0,0
+          DB      0,1,1,1,  0,1,3,1,  0,2,2,1,  0,2,3,1
+          DB      0,1,3,0,  0,2,1,0,  0,3,3,0,  0,4,1,0
+          DB      0,1,2,0,  0,2,2,0,  0,3,2,0,  0,4,2,0
+          DB      0,1,1,0,  0,2,3,0,  0,3,1,0,  0,4,3,0
+; 80 BYTE
+
+
+T_LEDRNUM     DB   0, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3
+T_LEDRJNUM    DB   0, 1, 1, 1, 3, 3, 3, 5, 5, 5, 7, 7, 7
+; 26 BYTE
+
+TORRF      DB   86,  28
+           DB   76,  14
+           DB   86,  14
+           DB   102, 28
+           DB   102, 28
+TORRF2     DB   102, 14
+           DB   114, 14
+           DB   102, 14
+           DB   96,  14
+           DB   102, 42
+; 20 BYTE
+BUD        DB  192,  20
+           DB  180,  20
+           DB  170,  20
+           DB  160,  20
+           DB  192,  40
+           DB  192,  40
+; 12 BYTE
+
+PARC       DB   ND3, PTIME
+           DB   NC3, PTIME
+           DB   ND3, PTIME*2
+           DB   NSZ,PTIME*2
+           DB   NC3, PTIME
+           DB   NB2, PTIME
+           DB   NA2, PTIME
+           DB   NG2, PTIME
+           DB   NFIS2, PTIME*2
+           DB   NG2, PTIME*2
+; 20 BYTE
+
+; DOUBLE OUT KIMENESI PONT SEGITSEG
+KIDOUT   DW       0H  ;  0
+         DW       0H  ;  1
+         DW    00C1H  ;  2 - D1
+         DW       0H  ;  3
+         DW    00C2H  ;  4 - D2
+         DW       0H  ;  5
+         DW    00C3H  ;  6
+         DW       0H  ;  7
+         DW    00C4H  ;  8
+         DW       0H  ;  9
+         DW    00C5H  ; 10
+         DW       0H  ; 11
+         DW    00C6H  ; 12
+         DW       0H  ; 13
+         DW    00C7H  ; 14
+         DW       0H  ; 15
+         DW    00C8H  ; 16
+         DW       0H  ; 17
+         DW    00C9H  ; 18
+         DW       0H  ; 19
+         DW    0C10H  ; 20
+         DW       0H  ; 21
+         DW    0C11H  ; 22
+         DW       0H  ; 23
+         DW    0C12H  ; 24
+         DW       0H  ; 25
+         DW    0C13H  ; 26
+         DW       0H  ; 27
+         DW    0C14H  ; 28
+         DW       0H  ; 29
+         DW    0C15H  ; 30
+         DW       0H  ; 31
+         DW    0C16H  ; 32
+         DW       0H  ; 33
+         DW    0C17H  ; 34
+         DW       0H  ; 35
+         DW    0C18H  ; 36
+         DW       0H  ; 37
+         DW    0C19H  ; 38
+         DW       0H  ; 39
+         DW    0C20H  ; 40
+         DW       0H  ; 41
+         DW       0H  ; 42
+         DW       0H  ; 43
+         DW       0H  ; 44
+         DW       0H  ; 45
+         DW       0H  ; 46
+         DW       0H  ; 47
+         DW       0H  ; 48
+         DW       0H  ; 49
+         DW    0021H  ; BUL
+; 102 BYTE
+
+; MASTER OUT KIMENESI PONT SEGITSEG
+KIMAST   DW       0H  ;  0
+         DW       0H  ;  1
+         DW    00C1H  ;  2 - D1
+         DW    00B1H  ;  3 - T1
+         DW    00C2H  ;  4 - D2
+         DW       0H  ;  5
+         DW    00B2H  ;  6 - T2
+         DW       0H  ;  7
+         DW    00C4H  ;  8 - D4
+         DW    00B3H  ;  9 - T3
+         DW    00C5H  ; 10 - D5
+         DW       0H  ; 11
+         DW    00B4H  ; 12 - T4
+         DW       0H  ; 13
+         DW    00C7H  ; 14 - D7
+         DW    00B5H  ; 15 - T5
+         DW    00C8H  ; 16 - D8
+         DW       0H  ; 17
+         DW    00B6H  ; 18 - T6
+         DW       0H  ; 19
+         DW    0C10H  ; 20 - D10
+         DW    00B7H  ; 21 - T7
+         DW    0C11H  ; 22 - D11
+         DW       0H  ; 23
+         DW    00B8H  ; 24 - T8
+         DW       0H  ; 25
+         DW    0C13H  ; 26 - D13
+         DW    00B9H  ; 27 - T9
+         DW    0C14H  ; 28 - D14
+         DW       0H  ; 29
+         DW    0B10H  ; 30 - T10
+         DW       0H  ; 31
+         DW    0C16H  ; 32 - D16
+         DW    0B11H  ; 33 - T11
+         DW    0C17H  ; 34 - D17
+         DW       0H  ; 35
+         DW    0B12H  ; 36 - T12
+         DW       0H  ; 37
+         DW    0C19H  ; 38 - D19
+         DW    0B13H  ; 39 - T13
+         DW    0C20H  ; 40 - D20
+         DW       0H  ; 41
+         DW    0B14H  ; 42 - T14
+         DW       0H  ; 43
+         DW       0H  ; 44
+         DW    0B15H  ; 45 - T15
+         DW       0H  ; 46
+         DW       0H  ; 47
+         DW    0B16H  ; 48 - T16
+         DW       0H  ; 49
+         DW    0021H  ;      BUL
+         DW    0B17H  ; 51 - T17
+         DW       0H  ; 52
+         DW       0H  ; 53
+         DW    0B18H  ; 54 - T18
+         DW       0H  ; 55
+         DW       0H  ; 56
+         DW    0B19H  ; 57 - T19
+         DW       0H  ; 58
+         DW       0H  ; 59
+         DW    0B20H  ; 60 - T20
+; 122 BYTE
+; EDDIG 580 BYTE
+
+; TABLAZATOK ELORE LETAROLT ADATOKKAL
+T_BASE          EQU     300H
+
+		ORG	T_BASE
+
+                .INCLUDE  KIJ5SOR.INC   ; KIJELZO SZEGMENS POZICIOK
+
+        ORG     T_BASE+580H
+
+; CELTABLA TALALATOK - PONTSZAMOK
+CCT1   DB      02H,2, 02H,1, 15H,2, 15H,1, 10H,2, 10H,1, 06H,2, 06H,1
+CCT2   DB      13H,2, 13H,1, 25H,4, 02H,3, 15H,3, 10H,3, 06H,3, 13H,3
+CCT3   DB      04H,2, 04H,1, 18H,2, 18H,1, 01H,2, 01H,1, 20H,2, 20H,1
+CCT4   DB      05H,2, 05H,1, 00H,0, 04H,3, 18H,3, 01H,3, 20H,3, 05H,3
+CCT5   DB      12H,2, 12H,1, 09H,2, 09H,1, 14H,2, 14H,1, 11H,2, 11H,1
+CCT6   DB      08H,2, 08H,1, 00H,0, 12H,3, 09H,3, 14H,3, 11H,3, 08H,3
+CCT7   DB      16H,2, 16H,1, 07H,2, 07H,1, 19H,2, 19H,1, 03H,2, 03H,1
+CCT8   DB      17H,2, 17H,1, 50H,8, 16H,3, 07H,3, 19H,3, 03H,3, 17H,3
+
+       ORG     T_BASE+600H
+;JATEKOK PARAMETEREI - A TABLAZATOK 32 ALAPJATEK BEFOGADASARA KEPESEK
+
+;KEZDO PONTSZAMOK
+KEZDPONT   DW     0,    0,   0301H, 0501H, 0701H, 0901H,  0,  0
+           DW     0,    0,       0,     0,     0,     0,  0,  60H
+           DW 0301H, 500H,       0,     0,     0,     0, 2H,  0
+           DW     0,    0,       0,     0,     0,     0,  0,  0
+
+; SORON KOVETKEZO JATEKOSOK SZAMA KULONBOZO BEALLITASOKNAL
+JATKOV    DB      0,   2,   3,  4,   5,  6,   7,   8,   1
+JATPREV   DB      0,   8,   1,  2,   3,  4,   5,   6,   7
+TEAMJAT1  DB      0,   3,   0,  1
+TEAMJAT2  DB      0,   2,   3,  4,   1
+TEAMJAT3  DB      0,   2,   5,  4,   7,  3,   0,   1
+TEAMJAT4  DB      0,   2,   5,  4,   7,  6,   3,   8,   1
+
+; STATISZTIKAI BEALLITAS MINDEN JATEKHOZ
+; 0=> SEMMI, 1=>PPD ES PPR,  2=>PER
+T_STAT     DB    0, 1, 1, 1, 1, 1, 1, 2, 1, 2, 2, 2, 0, 2, 2, 2
+           DB    2, 0, 0, 1, 2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+; MUTATO        0,  1,  2,   3,   4,   5,   6,  7,  8,   9,  10,  11, 12
+KORLOW    DB    0,  5,  5,   5,  15H, 15H, 20H, 4,  1, 15H, 15H, 15H,  5
+; MUTATO       13, 14,  15,  16,  17,  18,  19,  20, 21,  22,  23,  24, 25
+          DB  15H,  5, 15H,   8,   5,   5,   1, 15H,  8,  20H,  8,   3,  3
+
+; MUTATO        0,  1,  2,   3,   4,   5,   6,  7,  8,   9,  10,  11, 12
+KORHIGH   DB    0,21H,21H, 21H, 35H, 35H, 45H,  7,  5, 35H, 35H, 35H, 21H
+; MUTATO       13, 14, 15,  16,  17,  18,  19,  20,  21,  22,   23,  24, 25
+          DB  35H,  7,35H, 20H, 21H, 21H,   5, 35H, 20H, 20H,  20H,   7,  7
+
+;>FACTORY SETTINGS
+FACT_SET
+
+
+; KOROK SZAMA MAXIMALISAN - SETUP-PAL FELULIRHATO
+KORMAX    DB    0,  7,  7, 14H, 21H, 28H, 35H,  7,  2, 21H, 21H, 21H
+          DB    9, 21H, 7, 21H, 21H, 14H, 14H,  2,21H, 12H, 20H, 21H
+
+
+; JATEKOSONKENT SZUKSEGES KREDIT MENNYISEGE
+KREDJAT    DB    1, 1, 1, 2, 3, 4, 5, 1, 1, 3, 3, 3
+           DB    1, 3, 1, 3, 3, 2, 2, 1, 3, 2, 3, 3
+
+; OSZTOTT BULL EYE GYARI BEALLITAS
+GSPBULL    DB    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+           DB    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ; AZ UTOLSO NULLA
+                                              ; A VERSENYALLAPOT BITJE
+
+G_KODKER    DB   0      ; KELL-E PASSWD (1= IGEN)
+G_INFMOD    DB   1      ; INFRA MUKODESI MOD (1-2-3)
+G_VALT      DB   1      ; VALTASKORI KESLELTETES (1-8 SEC)
+G_SZIR      DB   1      ; JATEKSZUNETBEN SZIRENAZAS
+G_OPTROUND  DB   2      ; NEHEZITESKOR ENNYI PLUSZ KOR
+G_MEGORZ    DB   1      ; A KREDITEK MEGMARADJANAK KIKAPCSOLAS UTAN IS
+G_SORS      DB   1      ; JATEK VEGEN SORSOLAS (1-IGEN)
+G_AJA       DB   50H    ; ENNYI JATEK UTAN AJANDEK KREDIT ( 0 - 99)
+G_MINDZAR   DB   1      ; KRIK. EGY SZAM LEZARASAHOZ MINDENKINEK ZARNI KELL
+G_GYZAR     DB   0      ; KRIK. A GYOZELEMHEZ MINDKET JATEKOSNAK ZARNI KELL
+G_WINZENE   DB   6      ; 6. SZAMU ZENE SOROZAT
+G_STATEN    DB   0      ; STATISZTIKA
+G_SPEAKEN   DB   1      ; BESZEDHANGOK
+G_FELDOB    DB   1      ; LEGYEN BULL-RA DOBAS
+G_NODARTS   DB   1      ; NYILELFOGYAS HANGJA
+G_ERM1      DB   11H    ; ERME - KREDIT ARANY ALAPERTEK, CH1
+G_ERM2      DB   11H    ; ERME - KREDIT ARANY ALAPERTEK, CH2
+G_ERM3      DB   11H    ; ERME - KREDIT ARANY ALAPERTEK, CH3
+G_ERM4      DB   11H    ; ERME - KREDIT ARANY ALAPERTEK, CH4
+G_ERM5      DB   11H    ; ERME - KREDIT ARANY ALAPERTEK, CH5
+G_ERM6      DB   11H    ; ERME - KREDIT ARANY ALAPERTEK, CH6
+G_GYARSZAM  DB   12H, 34H, 56H
+
+;**** EZT A TERULETET AD LEHET MASOLNI A MEMORIABA
+
+; FACTORY SERIAL NUMBER
+MARK      DB    'S/N'
+PIN_KOD       DB   5,3,8,7           ; EZ A KODSZAM
+
+;POZ.          1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16
+
+;                TEAM-EQUAL-DOUBLEIN-DOUBLEOUT-MASTEROUT
+T_NEHEZ     DB   00000000B    ; HISCORE
+            DB   00000000B    ; LOSCORE
+            DB   00011111B    ; 301
+            DB   00011111B    ; 501
+            DB   00011111B    ; 701
+            DB   00011111B    ; 901
+            DB   00000000B    ; SHANGHAI
+            DB   00000000B    ; PUB GAME
+            DB   00010000B    ; CRICKET21
+            DB   00010000B    ; CRICKET
+            DB   00010000B    ; CRICKET CUT-THROAT
+            DB   00000000B    ; FIVES
+            DB   00000000B    ; BLO_CRICKET
+            DB   00000000B    ; HALVES
+            DB   00000000B    ; ABS_CRICKET
+            DB   00000000B    ; TRENING_DN
+            DB   00011111B    ; 301 PARCHESSI
+            DB   00000000B    ; HARD_SCORE
+            DB   00000000B    ; FLASH_GAME
+            DB   00000000B    ; PAIR_CRIC
+            DB   00000000B    ; REDMASTER
+            DB   00000000B    ; BULLMASTER
+            DB   00000000B    ; TRENING UP
+
+T_TEAM    DB   0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0
+          DB   1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+WINLOW    DB   0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1
+          DB   1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+          ORG  T_BASE+800H
+; JATEK FELIRATOK SZEGMENSEINEK KODOLASA
+JATCIM   LONG     06F60B600H     ; 1. HI SCORE
+         LONG     01CFCB600H     ; 2. LO SCORE
+         LONG     0F2FC6000H     ; 3. 301
+         LONG     0B6FC6000H     ; 4. 501
+         LONG     0E0FC6000H     ; 5. 701
+         LONG     0E6FC6000H     ; 6. 901
+         LONG     0B66FEE00H     ; 7. SHANGHAI
+         LONG     0CE383E00H     ; 8. PUB GAME
+         LONG     0ECB69D00H     ; 9. CRICKET21
+         LONG     09D0A2000H     ; 10. CRICKET
+         LONG     09D1F9D00H     ; 11. CRICKET CUT-THROAT
+         LONG     08E607D00H     ; 12. FIVES
+         LONG     03E1C9D00H     ; 13. BLO_CRICKET
+         LONG     06FEE1C00H     ; 14. HALVES
+         LONG     0EE3E9D00H     ; 15. ABS_CRICKET
+         LONG     01F0A7A00H     ; 16. TRENING DOWN
+         LONG     0CE1A2E00H     ; 17. 301 PARCHESSI
+         LONG     06FEEB600H     ; 18. HARD_SCORE
+         LONG     08E1CEE00H     ; 19. FLASH_GAME
+         LONG     0CE9D0A00H     ; 20. PAIR_CRICKET
+         LONG     00A9F7A00H     ; 21. REDMASTER
+BULL     LONG     03E381C00H     ; 22. BUL
+         LONG     01F0A3800H     ; 23. TRAINING UP
+         LONG     09F0A0A00H     ; 24. ERR   ; HIBAJELZESHEZ
+         LONG     000000000H     ; 25. TORLESHEZ URES UZENET
+; SETUP HELP
+S_HELP   LONG      1CFCEE00H     ; 1. LOA - LOAD FACTORY SETTINGS
+         LONG     0B69F0A00H     ; 2. SER - SERIAL NUMBER
+         LONG      607A9F00H     ; 3. IDE - IDENTIFIER
+         LONG     0CE60EC00H     ; 4. PIN - PIN CODE
+         LONG      60EC8E00H     ; 5. INF - INFRA SENSOR MODE
+         LONG      7A9F1C00H     ; 6. DEL - DELAY FOR PLAYER CHANGING
+         LONG     0B6600A00H     ; 7. SIR -SIREN UNTIL PLAYING WITHOUT CREDITS
+         LONG     0B6FCEC00H     ; 8. SON - SONG SELECTOR
+         LONG     0B6CE9F00H     ; 9. SPE - SPEAK ENABLE
+         LONG      0H
+         LONG      0H
+         LONG      0H
+         LONG      0H
+         LONG      0H
+         LONG      0H
+         LONG      9D6FEE00H     ; 10. CHA - CHAMPIONSHIP
+         LONG      9DFC7D00H     ; 11. COU - COIN COUNTERS
+         LONG      8E9F7A00H     ; 12. FED - FED
+         LONG     0BCEE9D00H     ; 13. GAC - GAME COUNTERS
+         LONG      8E0A9D00H     ; 14. FRC - FREE GAME COUNTER
+         LONG      9D1C0A00H     ; 15. CLR - CLEARING THE CLEARABLE COUNTERS
+         LONG      9D029D00H     ; 16. C-C - COIN PER CREDIT SETTING
+         LONG      0A9F1F00H     ; 17. RET - CREDIT RETENTION AFTER SWITCH-OFF
+         LONG      7A0AEE00H     ; 18. DRA - DRAWING A NUMBER FOR BONUS CREDIT
+         LONG      3EFCEC00H     ; 19. BON - BONUS CREDIT AFTER X SUPPL.CREDIT
+         LONG      0H
+         LONG      0H
+         LONG      0H
+         LONG      0H
+         LONG      0H
+         LONG      0H
+         LONG      6FFC7D00H     ; 20. HOU - COUNTERS FOR WORKED HOURS
+         LONG     0B61FEE00H     ; 21. STA - ENABLE DISPLAYING OF STATISTICS
+         LONG     0CEFCCE00H     ; 22. POP - GAME POPULARITY
+         LONG      0A3A3800H     ; 23. ROU - ROUNDS PER GAME SETTING
+         LONG      9D7ACE00H     ; 24. CDP - CREDIT PER PLAYER SETTING
+         LONG      3E381C00H     ; 25. BUL - SETTING OF BULLSEYE SPLITTING
+         LONG      9D0A9D00H     ; 26. CRC - EVERYBODY HAS TO CLOSE A NUMBER
+         LONG      1F9D0A00H     ; 27. TCR - TEAM CR.-BOTH PLAYER CLOSE TO WIN
+         LONG     0FCCE0A00H     ; 28. OPR - OPTION ROUNDS - PLUSZ KOROK
+         LONG      3E9FF600H     ; 29. BEG - BEGIN - BULL-RA DOBAS
+         LONG      02020200H     ; 2A. - KOTOJEL MINDHAROM DIGITEN
+         LONG      0H
+         LONG      0H
+         LONG      0H
+         LONG      0H
+         LONG      0H
+         LONG     0ECFC7A00H     ; 30. NOD - NO DARTS - NYILFOGYAS HANGJA
+         LONG      1F9FB600H     ; 31. TES - STARTING THE TEST MODE
+         LONG      3E769F00H     ; 32. BYE - EXIT THE SETUP MODE TO GAME
+
+
+; SETUP BELSO SZOVEGEK
+SET_IN   LONG      1C8E1F00H     ; 33. LFT - LIFETIME
+         LONG      9D1C9F00H     ; 34. CLE - CLEARABLE
+         LONG      8E9F7A00H    ; 35. FED - FED
+         LONG      9DFC6000H     ; 36. COI - COIN
+         LONG     0CE1C7A00H     ; 37. PLD - PLAYED
+         LONG      9D0A9F00H     ; 38. CRE - CREDIT
+         LONG     0FCFCFC00H     ; 39. 000 - NULLAZASI SZIMBOLUM
+         LONG      6FFC7D00H     ; 3A. HOU - HOURS
+         LONG     0CEEEB600H     ; 3B. PAS - PASSIVE TIME
+         LONG      8E0A9F00H     ; 3C. FRE - FREE
+         LONG      0A2E1F00H     ; 3D  RHT - RIGHT COIN SELECTOR
+
+; ERMEVIZSGALO SETUP CSATORNA
+SET_CH   LONG      9D2E6000H     ; 1. CH1 -
+         LONG      9D2EDA00H     ; 2. CH2 -
+         LONG      9D2EF200H     ; 3. CH3 -
+         LONG      9D2E6600H     ; 4. CH4 -
+         LONG      9D2EB600H     ; 5. CH5 -
+         LONG      8E9F7A00H     ; 6. FED -
+         LONG      10101000H     ; 7. ______ ALSO VONAL
+         LONG      80808000H     ; 8. ------ FELSO VONAL
+
+; STATISZTIKAI SEGED SZOVEGEK
+ST_HELP  LONG     0CECE0A00H     ; 1. PPR - POINT PER ROUND
+         LONG     0CECE7A00H     ; 2. PPD - POINT PER DART
+         LONG     0CE9F0A00H     ; 3. PER - PERCENT OF GOOD HITS
+         LONG     00A9F7A00H     ; 4. REDMASTER
+
+
+; SETUP UZENETEK
+SMESS    LONG         0ECFC00H      ; 0. NO - FELIRAT
+         LONG        769FB600H      ; 1. YES - FELIRAT
+         LONG       0B6CE1C00H      ; 2. SPL -FELIRAT (SPLIT)
+         LONG         0DAB600H      ; 3. 25 -FELIRAT
+         LONG         0B6FC00H      ; 4. 50 - FELIRAT
+         LONG       0FCEC9F00H      ; 5. ONE - FELIRAT
+         LONG       0EE1C1C00H      ; 6. ALL - FELIRAT
+
+; TESZT ALLAPOT ALATT AZ AKT. TESZT FAZIS NEVE
+M_TAR         EQU      5
+M_BUT         EQU      7
+M_COI         EQU      8
+M_ERR         EQU      13
+M_OR          EQU      14
+M_SEL         EQU      15
+M_TON         EQU      16
+M_TES         EQU      17
+M_SET         EQU      18
+M_URES        EQU      19
+
+TESTCIM       LONG      0B6FC7D00H      ; 1. SOU - SOUND
+              LONG      0B6CE9F00H      ; 2. SPE - SPEAK ENABLE
+              LONG       60EC8E00H      ; 3. INF - INFRA
+              LONG      0B69FEC00H      ; 4. SEN - SENSOR
+              LONG       1FEE0A00H      ; 5. TAR - TARGET
+              LONG       1C2E1F00H      ; 6. LHT - LIGHT
+              LONG       3E7D1F00H      ; 7. BUT - BUTTON
+              LONG      09DFC6000H      ; 8. COI - COIN SELECTOR
+              LONG       7AB6CE00H      ; 9. DSP - DISPLAY
+              LONG      0CE0AF600H      ; 10. PRG - PROGRAM
+              LONG       3E769F00H      ; 11. BYE - EXIT THE TEST MODE TO GAME
+
+              LONG      0F69F1F00H      ; 12. GET - TARGET MASODIK FELE
+              LONG       9F0A0A00H      ; 13. ERR - ERROR ELSO FELE
+              LONG        0FC0A00H      ; 14. OR  - ERROR MASODIK FELE
+              LONG      0B69F1C00H      ; 15. SEL - SELECTOR ELEJE
+              LONG       1FFCEC00H      ; 16. TON - BUTTON MASODIK FELE
+              LONG       1F9FB600H      ; 17. TES - TEST MODE
+              LONG      0B69F1F00H      ; 18. SET - SETUP MODE
+              LONG      0H              ; 19. URES, TORLESHEZ
+
+; NYOMOGOMBOKHOZ TARTOZO JATEKOK KODOLASA
+
+JATKAPCS1   DB  13,  9,   0,  0     ; BLACK-OUT CRIC., NO SCORE CRIC.
+JATKAPCS2   DB  10, 20,   0,  0     ; CRICKET, PAIR CRICKET
+JATKAPCS3   DB  12, 14,   0,  0     ; FIVES, HALVE
+JATKAPCS4   DB  22, 21,   0,  0     ; BULLMASTER, REDMASTER
+JATKAPCS5   DB  16, 23,  17,  0     ; TRAINING DOWN, UP, 301 PARCHESSI
+JATKAPCS6   DB   3,  4,   5,  6     ; 301-501-701-901
+JATKAPCS7   DB   7,  8,  19,  0     ; SHANGHAI, PUB GAME, FLASH GAME
+JATKAPCS8   DB   1,  2,  18,  0     ; HISCORE, LOSCORE, HARD SCORE
+JATKAPCS9   DB  11, 15,   0,  0     ; CUT-THROAT CRIC., ABSURD CRIC.
+
+;*******************************************************/
+;	Programterulet kezdete
+KEZDES1     DB    'FOPROGRAM'
+
+;*******************************************************/
+;	Indito programresz
+;>START
+START
+start		CLR     EA                      ; IT TORLESE
+                LCALL   TIM100MS
+                CLR     VAN_REP
+                CLR     REP_MEGINT
+                CLR     REP_CUR
+                CLR     REP_PREV
+                CLR     P_JATEK
+                CLR     P_TEST
+                CLR     P_SETUP
+                CLR     P_DEMO
+                CLR     P_FREEGAME      ; LEHET, HOGY FELULIRODNAK !!
+                CLR     P_VEGE          ; EZEK CSAK HIDEGINDATASNAL
+                MOV     DPTR,#ST_FLAG        ; FLAG CIME
+                CLR     A                    ; 0-T IRATUNK, NINCS FLAG
+                MOVX    @DPTR,A              ; NEM KELL MEGADOTT HELYRE MENNI
+                SJMP    MELEG2          ; VALTOZZANAK MEG !!
+
+;>MELEGINDIT
+MELEGINDIT       NOP            ; IDE UGRIK MELEGINDITASKOR
+                                ; MELEGINDITASKOR ALAPHELYZET
+                 MOV    DPTR,#ST_FLAG        ; FLAG CIME
+                 CLR    A                    ; 0-T IRATUNK, NINCS FLAG
+                 MOVX   @DPTR,A              ; NEM KELL MEGADOTT HELYRE MENNI
+                 CLR     P_JATEK
+                 CLR     P_TEST
+                 CLR     P_SETUP
+                 CLR     P_DEMO
+                 CLR     P_FREEGAME      ; LEHET, HOGY FELULIRODNAK !!
+                 CLR     P_VEGE          ; EZEK CSAK HIDEGINDITASNAL
+
+
+MELEG2           MOV    DPTR,#SETUP_DIS     ; SETUP IRAS TILTASA
+                 CLR    A
+                 MOVX   @DPTR,A
+                 LCALL  EEPROM_INIT              ; EEPROM VONALAK H-BA
+
+                 MOV	PSW,#rbank0		; R.bank 0
+		 MOV	SP,#STACK		; Stack beallitas
+
+;	A BELSO RAM TORLESe elOtt a bitenkEnt CIMezhetO TERULET
+;	0-7 bitjEt (ez a $20-as regiszter) a B regiszterbe mentem  :
+
+		MOV	B,20H
+; Belso RAM torles (0 - 7f)
+		CLR	A
+		MOV	R0,#7FH
+BRAM_CLR	MOV	@R0,A
+		DJNZ	R0,BRAM_CLR
+		MOV	20H,B
+
+; A monitor a PCON regisztert Atirta, (a baud sebessEg megduplAzAsa miatt)
+; eZARt a felhasznAlOi programban tOrOlni kell :
+
+	;	MOV	PCON,#80H     ; SOROS PORT DUPLA SEB.
+                                      ; 80h kell majd
+; Timer inicializAlAs
+; timer0: mode 2	TH0: idozitEs - ennyi idonkent kerunk IT-t
+; timer1: mode 2	TH1: soros port baud rate
+
+		MOV	TMOD,#22H
+		MOV	TH0,#OSZTO1
+
+                MOV     T2CON,#34H      ; T2 RELOAD BAUDRATE MODE
+
+                MOV     RCAP2L,#255-78
+                MOV     RCAP2H,#0FFH   ; FREKI OSZTAS
+                                      ; 40 - 16667
+                                      ; 24 - 27777
+                                      ;  9 - 38400 * TESTED
+                                      ; 19 - 19200 * TESTED
+                                      ; 39 - 9600  * TESTED
+                                      ; 78 - 4800  * TESTED
+                                      ; 156 - 2400 * TESTED
+
+		MOV	TH1,#235      ; (253) 1200 Baud / 6MHz ->243
+		SETB	TR0
+		SETB	TR1
+
+                MOV     MP,#0          ; TIMER 0 ALTAL KEZELT REG.-EK.
+                MOV     PERC,#0
+                MOV     ORA,#0
+;               PUSH    PSW
+;               MOV     PSW,rbank1
+;               MOV     R5,#OSZTO2
+;               MOV     R3,#OSZTO2
+;               POP     PSW
+
+; Soros port inicializAlAs
+; ModeEQU3
+		MOV	SCON,#F3H  ; 3-AS UZEMMOD
+
+; Interruptok
+		MOV	IEC,#0
+		SETB	ET0	  ; timer0
+		SETB	PT0	  ; MAGAS PRIORITAS
+		CLR	ES	  ; soros port TILTVA
+		CLR	EX1	  ; KULSO INT1 TILTVA
+		SETB	IT1	  ; ELRE AKTIV
+		SETB	EX0	  ; KULSO INT0 ENGEDELYEZVE
+                CLR     PX0       ; ALT. PRIORITAS
+		CLR	IT0	  ; LOW SZINTRE AKTIV
+		SETB	EA	  ; ALTALANOS ENG.
+
+		SETB	INT0
+		SETB	INT1
+		SETB	T0
+		SETB	T1
+
+;                LCALL   BUFINI
+;                LCALL   DARTKIJ
+;                MOV     DPTR,#CT1       ; RAM PROBA
+;                MOVX    A,@DPTR
+;                MOV       AKTKOR,A
+;                LCALL     KORSZAM          ; KORSZAM IS KIIRATVA
+;                LCALL     DARTKIJ
+
+; NNN1            NOP
+;                SJMP     NNN1
+
+
+	        MOV	PSW,#rbank0	; R.bank 0
+                EEPEN                   ; EEPROM ENGEDELYEZES
+          ;      LJMP    SOROSTESZT
+                LCALL   HANG_INIT       ; HANG IC ALAPHELYZET + KIJELZO ENG.
+
+                LCALL   GENERAL_INIT    ; FOBB VALTOZOK INICIALIZALASA
+                LCALL   TIM10MS
+                LCALL   TIM100MS
+                LCALL   TIM100MS
+                LCALL   TIM100MS
+
+
+                MOV     DPTR,#JAT_SORSZ ; BEKAPCSOLAS UTAN 501 AZ ALAPJATEK
+                MOV     A,#4            ; BEKAPCSOLAS UTAN NINCS REPLAY
+                MOVX    @DPTR,A
+                MOV     DPTR,#OLD_MAXJAT  ; KET JATEKOSSAL KEZDJE
+                MOV     A,#2
+                MOVX    @DPTR,A
+                CLR     OLD_EQUAL       ; NEHEZITESEK BEALLITASA
+                CLR     OLD_TEAM
+                CLR     OLD_DOUBOUT
+                SETB    OLD_MASTOUT
+                SETB    OLD_DOUBIN
+
+                LJMP    FOCIK           ; UGRAS A FOCIKLUSBA
+
+;*******************************************************/
+; KUlsO megszakitAs 0
+
+SW_RESET            EQU       01H
+SW_SETUP            EQU       02H
+SW_TEST             EQU       04H
+SW_FREE             EQU       08H
+
+IT0_SERV        AJMP   IT0_END          ; segEd ugrO CIM
+
+
+extint0         CLR    EA                  ; TOVABBI MEGSZAKITASOK TILTASA
+                PUSH   PSW                 ; PSW MENTESE
+                PUSH   A                   ; A REG- MENTESE
+                PUSH   DPL                 ; DPTR MENTESE
+                PUSH   DPH                 ;
+                READ3                    ; BELSO NYOMOGOMBOK OLVASASA
+                CPL    A                 ; INVERTALAS
+                ANL    A,#0FH            ; FELSO NEGYES TOROLVE
+                JZ     IT0_SERV           ; CSAK KOBOR HIVAS VOLT, KILEP
+                LCALL  TIM30MS            ; PRELL MENTESITES
+                READ3                    ; BELSO NYOMOGOMBOK OLVASASA
+                CPL    A                 ; INVERTALAS
+                ANL    A,#0FH            ; FELSO NEGYES TOROLVE
+                JZ     IT0_SERV           ; CSAK KOBOR HIVAS VOLT, KILEP
+
+IT_RESET        CJNE   A,#SW_RESET,EXI3       ; HA NEM RESET, UGRAS
+EXI3A           LCALL  TIM30MS
+                READ3
+                CPL    A
+                ANL    A,#0FH            ; FELSO NEGYES TOROLVE
+                JNZ    EXI3A
+                LCALL  TIM30MS           ; MEGVARJA, MIG ELENGEDIK
+;               SJMP   JMP_MELEG          ; VISSZA AZ ELEJERE
+
+                POP    DPH               ; HASZNALT REGISZTEREK VISSZA
+                POP    DPL
+                POP    A
+                POP    PSW
+                POP    DPH            ; REGI VISSZATERESI CIM TORLESE
+                POP    DPL
+                MOV    DPTR,#MELEGINDIT
+                PUSH   DPL
+                PUSH   DPH
+                SETB   EA
+                RETI                    ; VISSZATERES AZ ELEJERE
+
+
+EXI3            JB    P_TEST,IT0_END     ; HA SETUP-BAN VAGYUNK, ELENGEDI
+                JB    P_SETUP,IT0_END    ; HA TESZT, ELENGEDI
+
+IT_SETUP        CJNE   A,#SW_SETUP,IT_TEST    ; HA NEM SETUP, UGRAS
+                LCALL  TIM30MS
+EXI1S           READ3
+                CPL    A
+                ANL    A,#0FH            ; FELSO NEGYES TOROLVE
+                JNZ    EXI1S
+                LCALL  TIM30MS           ; MEGVARJA, MIG ELENGEDIK
+                SETB   P_SETUP           ; SETUP HIVAS ELOKESZITESE
+                SJMP   JMP_MELEG
+
+IT_TEST         CJNE   A,#SW_TEST,IT_FREE   ; TESZT MODE INDITASA
+                LCALL  TIM30MS
+EXI1T           READ3
+                CPL    A
+                ANL    A,#0FH           ; FELSO NEGYES TOROLVE
+                JNZ    EXI1T
+                LCALL  TIM30MS          ; MEGVARJA, MIG ELENGEDIK
+                SETB   P_TEST
+                SJMP   JMP_MELEG
+
+IT_FREE         CJNE   A,#SW_FREE,IT0_END    ; SZABADJATEK BEALLITASA
+                LCALL  TIM30MS
+EXI1F           READ3
+                CPL    A
+                ANL    A,#0FH            ; FELSO NEGYES TOROLVE
+                JNZ    EXI1F              ; MEGVARJA, MIG ELENGEDIK
+                LCALL  TIM30MS
+                SETB   P_FREEGAME
+                MOV    DPTR,#MEG_ORZ
+                MOVX   A,@DPTR          ; MEGNEZI, KELL-E FLAG
+                CJNE   A,#2,EXI1G       ; NEM KELL, UGRAS
+                MOV    DPTR,#ST_FLAG
+                MOV    A,#ST_FREE
+                MOVX   @DPTR,A          ; JELEZZUK, HOGY LESZ FLAG
+                SJMP   JMP_MELEG
+
+EXI1G           MOV    DPTR,#ST_FLAG
+                CLR    A                ; NINCS FLAG
+                MOVX   @DPTR,A          ; JELEZZUK, HOGY LESZ FLAG
+                SJMP   JMP_MELEG
+
+IT0_END         POP     DPH           ; IDEJÖN, HA TEVES VOLT AZ IT KERES
+                POP     DPL
+                POP     A
+                POP     PSW           ; HASZNALT REGISZTEREK VISSZATOLTESE
+                SETB   EA             ; IT ENGEDELYEZES
+                RETI                  ; VISSZATERES MEGSZAKITASBOL
+
+JMP_MELEG       POP    A              ; A REGI CIMET ELVESZUITJUK
+                MOV    DPTR,#MELEG2
+                PUSH   DPL
+                PUSH   DPH
+                SETB   EA
+                RETI                    ; VISSZATERES
+
+;*******************************************************/
+;KULSO MEGSZAKITAS 1 (NEM ENGEDELYEZETT)
+extint1 	reti
+
+;*******************************************************/
+;	0 timer interrupt
+;	Prioritasban magas szint
+;	Autoreload UZEMMOD
+;	ISMETLESI IDO: 500us
+;	1.regiszterbankot hasznALja
+;	R0:
+;	R1: osztO (100ms)
+;	R2: AltalAnos idOzItO (500ms)
+;	R3: osztO (1s)  (UGYANAZT SZAMOLJA, MINT AZ R5)
+;	R4: vEdelmi SZAMLALO (0.1s)
+;	R5: 50ms- OKAT SZAMOLJA SAJAT IDOZITESHEZ
+;	R6: TIZEDMASODPERCEK SZAMA -TDELAY INICIALIZALJA
+;	R7: HATPERC SZAMLALO UZEMORA SZAMLALASHOZ
+
+
+timer0int       ; RET
+                PUSH	PSW             ; A HASZNALT REGISZTEREK ELMENTESE
+		PUSH	ACC
+		PUSH	DPH
+		PUSH	DPL
+                PUSH    P1
+		MOV	PSW,#rbank1
+
+     ;		mov	a,R6            ; R6 VIZSGALATA
+     ;		jz	timer0x         ; HA NULLA, UGRAS,
+     ;		dec	R6              ; EGYEBKENT CSOKKENTES
+
+timer0x         DJNZ     R5,TIMER5X     ; R5 CSOKKENTESE
+                MOV      R5,#OSZTO2     ; 50ms UJRA TOLTESE
+                DJNZ     R6,TIMER5X     ; 50ms-OK SZAMA IDOZITESHEZ
+                SETB     FLAGTIM
+
+TIMER5X         JNB     FLAG10P,timer99 ; HA NEM VOLT UZEMORA ADAT, UGRIK
+             ;  LCALL   SETUPSAVE
+                CLR     FLAG10P
+
+timer99
+mposztas	DJNZ	R3,timer0v      ; HA A SECOSZTO>0, A VEGERE UGRIK
+                        	        ; 50ms
+		MOV	R3,#OSZTO2      ; R3-BA 200 (200*500uS=0.1s)
+
+tim020x 	djnz	r2,timer0v
+	; 1s eltelt
+		mov	r2,#20          ; R2-T UJRA TOLTJUK
+
+                MOV     A,MP
+		ADD	A,#01
+		DA	A
+
+		MOV	MP,A
+		ADD	A,#0A0H
+		JNC	timer0v
+
+;	PERC
+                LCALL   UZEM_IDO
+                MOV	MP,#00
+                JNB     DOBJON,DBJ1     ; HA NEM EL A BIT, UGRIK
+                MOV     DPTR,#DOB_IDO
+                MOVX    A,@DPTR
+                INC     A               ; KET PERC UTAN FIGYELMEZTETO HANG
+                CJNE    A,#4,DBJ3       ; HA MEG NEM ERTE EL, UGRAS
+                MOV     A,#H_RESET         ; FIGYELMEZTETO HANG
+                LCALL   H_EFFEKT
+                CLR     A               ; NULLAZZUK A VALTOZOT
+DBJ3            MOVX    @DPTR,A         ; VISSZAMENTJUK
+                SJMP    DBJ2
+DBJ1            CLR     A               ; HA NEM EL A BIT, NULLAZZUK
+                MOV     DPTR,#DOB_IDO
+                MOVX    @DPTR,A
+DBJ2		MOV	A,PERC
+		ADD	A,#01
+		DA	A
+		MOV	PERC,A
+		ADD	A,#0A0H
+		JNC	timer0v
+;	ORA :
+		MOV	PERC,#00
+		MOV	A,ORA
+		ADD	A,#01
+		DA	A
+		MOV	ORA,A
+		ADD	A,#0DCH
+		JNC	timer0v
+		MOV	ORA,#00
+
+timer0v 	POP     P1
+                POP	DPL
+		POP	DPH
+		POP	ACC
+		POP	PSW
+		RETI
+
+;*******************************************************/
+;	1 timer interrupt (Baud-rate generator)
+
+timer1int	RETI
+
+;*******************************************************/
+;	Soros vonali interrupt
+;	 ( csak adas van, vetel nincs )
+sorosint	clr RI
+		reti
+
+
+; IT RUTINOK VEGE
+;*******************************************************
+
+         .INCLUDE BIOS7.INC
+
+; KezdOERTEK ADASok
+; GEPBEKAPCSOLAS UTANI KEZDOERTEK ADASOK
+;>GENERAL_INIT
+GENERAL_INIT
+          ;      LCALL   SOROSTESZT
+                CLR     P17            ; SND2 TORLES
+                CLR     LEPHET         ; TOVABBLEPES A KOV. JATEKOSRA
+                CLR     SVILLOG         ; VILLOGASOK ALLAPOTA
+
+                CLR     FLAG10P
+                CLR     PUB_GAME       ; =1, HA PUB_GAME VAN KIVALASZTVA
+                CLR     FLASH_GAME
+                CLR     CRIC_GROUP
+                CLR     VANHANG        ; NEM SZOL SEMMI
+                SETB    TILT           ; =1, HA BEKAPCSOLAS UTAN VAGYUNK
+		MOV	REG13,#OSZTO2
+		MOV	REG11,#10
+		MOV	REG12,#10
+	 ;	MOV	MUXOK,#01H
+		KEYCLR
+		MOV	SL0DATA,#0
+		MOV	SL1DATA,#0
+		MOV	SL2DATA,#0
+		MOV	SL3DATA,#0
+		MOV	SL4DATA,#0
+	;	MOV	SL5DATA,#0
+		MOV	SL6DATA,#0	; A KIJELZO VEZERLO BITEKET
+         ;      MOV     VEZBYTE,#0      ; HANG IC VEZ.BYTE
+                LCALL   VAR_INIT        ; VALTOZO-TERULET INIT.
+                LCALL   MEM_INIT        ; PARAMETER TERULET INICIALIZALAS
+                LCALL   SELECTOR_INIT   ; ERMEVIZSGALO TIPUS BEOLVASAS
+		RET			; INVERTALAS MIATT 1-BE IRJUK
+
+; KODKAPCSOLO - CSATORNASZAM KONVERTALAS
+SEL_CH       DB   1, 5, 3, 5, 2, 5, 4, 5    ; MAX. 7 LEHET A BEOLV. SZAM
+
+; ERMEVIZSGALO ES CSATORNASZAM MEGALLAPITAS
+;>SELECTOR_INIT
+SELECTOR_INIT
+                READ3                   ; PORT BEOLVASAS
+                CPL    A                ; INVERTALAS
+                SWAP   A                ; FELSO TETRAD ALULRA
+                ANL    A,#0FH           ; CSAK AZ ALSO NEGYES MARADJON
+                RRC    A                ; JOBBRA LEPTETES CARRY-N AT
+                JC     ELEC_SEL         ; HA VAN CARRY, ELEKTRONIKUS ERM.
+                SETB   MECH_SEL         ; MECHANIKUS ERMEVIZSGALO
+                RET                     ; BEALLITAS MEGTORTENT, VISSZA
+ELEC_SEL        CLR    MECH_SEL         ; NEM MECHANIKUS
+                MOV    DPTR,#SEL_CH     ; BAZISCIM BETOLTES
+                MOVC   A,@A+DPTR        ; BEOLVASAS ELTOLASSAL
+                MOV    DPTR,#CH_NUM     ; BEOLVASOTT ADAT ELTAROLAS
+                MOVX   @DPTR,A
+                RET                     ; INICIALIZALAS MEGTORTONT
+
+; PARAMETER MEMORIA TERULET INICIALIZALAS
+;>MEM_INIT
+MEM_INIT       MOV     DPTR,#MEMPLACE    ; IDE FOG TOLTENI AZ EEPROM
+               MOV     B,#0FFH           ; A TELJES TERULETET TOROLJUK
+               CLR     A
+MPT1           MOVX    @DPTR,A
+               INC     DPTR
+               DJNZ    B,MPT1
+               RET
+
+;>VAR_INIT
+VAR_INIT       MOV     DPTR,#VALTOZOK   ; ITT KEZDODIK
+               MOV     B,#FFH           ; A TELJES TERULETET TOROLJUK
+               CLR     A
+VRT1           MOVX    @DPTR,A
+               INC     DPTR
+               DJNZ    B,VRT1
+               MOV     B,#FFH           ; A TELJES TERULETET TOROLJUK
+               CLR     A
+VRT2           MOVX    @DPTR,A
+               INC     DPTR
+               DJNZ    B,VRT2
+               CLR     A                    ; TORLESEK
+               MOV     DPTR,#ERME_BON       ; BONUS KREDIT MINDEN
+               MOVX    @DPTR,A              ; BEKAPCSOLASSAL UJRA INDUL
+               RET
+
+
+; ELLENORZO OSSZEG SZAMITASA EEPROM KEZELESHEZ
+; KIMENO ADAT: A-BAN A CHECKSUM
+; A MEMORIA TERULET MINDEN BYTE-JAT XOR KAPCSOLATBA HOZZA
+;>CHECKSUM
+CHECKSUM      CLR       A               ; JELENLEG NINCS !!!
+              RET
+
+              PUSH      B
+              PUSH      DREG
+              MOV       B,#220          ; ENNYI BYTE-RA SZAMITUNK
+              MOV       DPTR,#MEMPLACE
+              MOV       DREG,#0         ; UDE GYULIK A CHECKSUM
+CHK1          MOVX      A,@DPTR         ; KOV. BYTE A-BA
+              XRL       DREG,A          ; XOR, EREDMENY A-BA
+              INC       DPTR
+              DJNZ      B,CHK1          ; B-SZER MEGCSINALNI
+              MOV       A,DREG
+              POP       DREG
+              POP       B
+              RET
+
+; UZEMORA SZAMLALAS RUTIN
+;>UZEM_IDO
+UPE11           LJMP UPE1
+UZEM_IDO        PUSH    B
+                MOV     A,R7            ; TIZPERC SZAMLALO NOVELES
+                ADD     A,#01
+                MOV     R7,A            ; VISSZATOLTES
+                CJNE    A,#10,UPE11     ; HAM EG NEM ERTE EL, UGRAS (10!!)
+UPE2            SETB    FLAG10P         ; JELZOBIT BEALLITAS
+                MOV     R7,#0           ; TIZPERC SZAMLALO TORLES
+                XBYTE   UZEM_ORA,#3     ; TIZPERCEK SZAMANAK BETOLTESE
+                ADD     A,#1            ; NOVELES
+                MOV     B,A
+                XBYTEKI UZEM_ORA,#3,B    ; A TIZPERC SZAMLALOT ELMENTJUK
+                CJNE    A,#6,UPE4        ; HA NINCS EGY ORA, AZ UZEMORA MARAD
+                MOV     B,#0
+                XBYTEKI UZEM_ORA,#3,B    ; A TIZPERC SZAMLALOT NULLAZZUK
+                MOV     DPTR,#UZEM_ORA
+           ;     LCALL   COUNTER_INC      ; (EEPROM MIATT KIVEVE)
+
+UPE4            JNB     P_JATEK,UPE5     ; HA JATEK VAN, A PASSZIV IDO MARAD
+                LJMP    UPE1
+UPE5            XBYTE   PAS_ORA,#3        ; TIZPERCEK SZAMANAK BETOLTESE
+                ADD     A,#1              ; NOVELES
+                MOV     B,A
+                XBYTEKI PAS_ORA,#3,B     ; A TIZPERC SZAMLALOT ELMENTJUK
+                CJNE    A,#6,UPE7         ; HA NINCS 6*10 PERC, UGRIK
+UPE6            MOV     B,#0
+                XBYTEKI PAS_ORA,#3,B     ; A NEGYEDORA SZAMLALOT NULLAZZUK
+                MOV     DPTR,#PAS_ORA
+            ;    LCALL   COUNTER_INC      ; (EEPROM MIATT KIVEVE)
+
+UPE7        ;   LCALL   SETUPSAVE         ; UZEMORA ADAT ELMENTES
+                CLR     FLAG10P            ; JELZOBIT TORLES
+
+UPE1		POP     B
+                RET
+
+;*********************************************
+; IdOkEsleltetO rutin. R6 regiszterbe (bank1) kell a tizedmasodpercek
+;  SZAMAT megadni.
+; BEJOVO ADAT: A-BAN A KERT IDO TIZEDMASODPERCBEN, BINARIS KODBAN
+;>TDELAY
+TDELAY            CLR   EA
+                  PUSH  PSW
+                  PUSH  ACC
+                  RL    A               ; KETSZER ANNYIT KELL
+
+                  MOV   PSW,#rbank1     ; BANK1-T HASZNALJUK
+                  MOV   R5,#OSZTO2
+                  MOV   R6,A            ; REGISZTEREK INICIALIZALASA
+                  CLR   FLAGTIM         ; FLAGTIM BIT TORLESE
+                  POP   ACC
+                  POP   PSW
+                  SETB  EA              ; IT ENGEDELYEZES
+                  RET                   ; VISSZATERES
+
+
+;*******************************************************/
+;	Fo mukodesi ciklus
+;>FOCIK
+FOCIK           SETB    EA
+                INFEN                      ; INFRA ERZEKELO ENGEDELYEZES
+T_D1    	LCALL	BUFINI          ; KIJELZO TORLES
+                LCALL   DARTKIJ
+                LCALL   TIM100MS
+           ;    LCALL   P_TES
+                MOV     BREG,#3        ; HAROMSZOR OLVASSUK BE
+FFC1
+       ;         LCALL   EEP_TEST
+                LCALL   SETUPLOAD
+                                       ; SETUP ADATOK BETOLTESE
+                JZ      FFC2           ; BEOLVASAS OK, MEHET TOVABB
+                DJNZ    BREG,FFC1
+                MOV     A,#22H         ; EEPROM BEOLVASAS HIBA - HIBAJELZES
+                LCALL   KIJELEZ        ; HIBAUZENET BELSO KIJELZORE
+                                       ; EGYEDUL ITT TOLTUNK SETUP-OT !!!
+FFC2            FENYKI                  ; VILAGITAS KIKAPCS.
+                LCALL  IS_VIRGIN          ; MEGNEZI, KELL-E AZ EEPROMOT INIT.
+                JZ     FFC2A
+                LCALL  VIRGIN             ; EEPROM INICIALIZALAS
+FFC2A
+                LCALL  KRED_TOLT        ; KREDIT FOLYAM FELTOLTES
+             ;  LCALL  KRED_PROBA
+
+                LCALL   ERR_TARGET     ; CELTABLA ELLENORZES
+                LCALL   COIN_CHECK    ; ERMEVIZSGALO ELLENORZES
+
+               XBYTE     PASS_WD,#0    ; KELL JELSZO ?
+               JZ        FCK1          ; NEM KELL, UGRAS
+               LCALL     PINKOD        ; CSAK AKKOR TER VISSZA, HA JO A KOD
+
+FCK1
+ELEJE      ;   SJMP     FCK3            ; UGRAS A JATEK MODRA
+
+               LCALL    SW_ONBILL       ; BEKAPCSOLASI OPCIO ELLENORZES
+
+          ;    LCALL    FACT_CHECK      ; GYARI SZAM ELLENORZES
+               CJNE      A,#3,FCK2
+
+FCK1A          LCALL    SETUP           ; UGRAS SETUP MODBA
+               JNB      P_TEST,FCK1B    ; HAN EM TESZT, UGRIK
+               LCALL    TEST_MODE
+FCK1B          LJMP     MELEGINDIT
+
+FCK2           CJNE     A,#2,FCK3
+               LCALL    TEST_MODE       ; UGRAS TESZT MODBA
+               LJMP     MELEGINDIT       ; MELEGINDIT
+
+FCK3           LCALL    GAME_MODE
+               SJMP     FCK3
+
+; *******************************       JATEK UZEMMOD
+;>GAME_MODE
+GAME_MODE
+              MOV    DPTR,#MEG_ORZ
+              MOVX   A,@DPTR          ; MEGNEZI, KELL-E FLAG
+              CJNE   A,#2,GMD2       ; NEM KELL, UGRAS
+
+              MOV    DPTR,#ST_FLAG
+              MOVX   A,@DPTR         ; JELEZZUK, HOGY LESZ FLAG
+              CJNE   A,#ST_JATKOZ,GMD2
+              LCALL  ST_LOAD         ; NEM IDE TER VISSZA, HANEM ODA
+
+GMD2          JNB    TILT,GMD1A     ; HA NEM MOST KAPCSOLTAK BE, NEM VAR
+           ;  LCALL  SETUPLOAD
+              LCALL  TIM100MS       ; VARAKOZAS, HOGY ELEDJEN AZ EROSITO
+GMD1A         MOV     A,#H_BEKAP        ; BEKAPCS. HANGEFF.
+              LCALL   H_EFFEKT
+
+GMD1          LCALL  GAME_INIT
+              CLR    LED_INV             ; ALAPHELYZETBEN NEM INVERTALUNK
+              CLR    PAIR_CR             ; NEM PAIR CRICKET
+              CLR    DOBJON
+              CLR    BACK_STEP
+              SETB   LEGELSO
+              CLR    FELDOBAS           ; ALAPHELYZETBEN NEM KER FELDOBAST
+              CLR    P_VEGE
+              CLR    P_TEST              ; TESZT MOD TORLES
+              CLR    P_JATEK
+              CLR    P_SETUP
+              SETB   REP_MEGINT
+              LCALL  KMAX_MENT
+; CSE1        LCALL  COIN
+;             SJMP   CSE1
+              LCALL  FOMENU              ; FOMENU, JATEKVALASZTAS
+              MOV    A,MAXJAT
+;             LCALL  SER_DEBUG
+              LCALL  JATEKSELECT         ; VALASZTOTT JATEK FUTTATASA
+              JB     BACK_STEP,GMD1      ; ELSO NYIL UTANI VISSZALEPES
+     	      RET
+
+; A RUTIN A NEHEZITESEK JELZOBITJEIT INICIALIZALJA
+;>NEHEZINIT
+NEHEZINIT       CLR     DOUBIN
+                CLR     DOUBOUT
+                CLR     MASTOUT
+                CLR     TEAM
+                CLR     EQUAL
+                RET
+
+; A RUTIN MEGNEZI, VAN-E DOBVA VALAMI ?
+; VISSZATERES A ROSSZDOB BIT ERTEKEVEL
+; NEM DOBTAK: ROSSZDOB=0, DOBTAK: ROSSZDOB=1
+;>VANDOBAS
+
+VANDOBAS        CLR     ROSSZDOB        ; DEFAULT: NEM DOBTAK
+                LCALL	DOBERT1		; MEGNEZZUK, DOBTAK-E MAR
+                JNZ     VND1            ; HA  VOLT DOBAS, UGRIK
+                RET
+VND1            SETB    ROSSZDOB        ; VOLT DOBAS
+                RET
+
+
+;**********************************************************
+; DEMO UZEMMOD RUTINJAI
+
+
+DEMVILL         EQU     10              ; DEMO LEPTETESI IDO
+                DB 'DEMOK'
+;>DEMO
+DEMO            FENYKI
+                LCALL   LAMSOTET
+                MOV     MAXJAT,#8       ; TELJES KEPERNYON MENJEN A DEMO
+                CLR     DOBJON
+                CLR     LEPHET          ; HA LEPHET=1, AKKOR LETT KREDIT
+                SETB    P_DEMO          ; DEMO FAZIS JELZESE
+DEMO1           MOV     A,#I_NO1+I_NO2
+                LCALL   L_LEC
+              ; BELAM   IZNOSCORE1
+              ; BELAM   IZNOSCORE2
+                LCALL   BUBOREK
+                JNB     LEPHET,DEM_LEP1
+                LJMP    DEMO_V
+DEM_LEP1        MOV     A,#I_TIL+I_SZA
+                LCALL   L_LEC
+             ;   KILAM   IZNOSCORE1
+             ;   KILAM   IZNOSCORE2
+             ;   BELAM   IZTILOS
+             ;   BELAM   IZSZABAD
+                LCALL   COLDEMO
+                JNB     LEPHET,DEM_LEP2
+                LJMP    DEMO_V
+DEM_LEP2        MOV     A,#I_BUL
+                LCALL   L_LEC
+              ;  KILAM   IZTILOS
+              ;  KILAM   IZSZABAD
+              ;  BELAM   IZBULLEYE
+                LCALL   ROWDEMO1        ; SOROK LE, UTANA FELFELE
+                JNB     LEPHET,DEM_LEP3
+                LJMP    DEMO_V
+DEM_LEP3        BELAM   IZNOSCORE1
+                BELAM   IZNOSCORE2
+                LCALL   PLAYDART
+                JNB     LEPHET,DEM_LEP4
+                LJMP    DEMO_V
+DEM_LEP4        BELAM   IZTILOS
+                BELAM   IZSZABAD
+                LCALL   COLDEMO         ; FUGG. OSZLOPOK MOZGATASA
+                JB      LEPHET,DEMO_V
+                KILAM   IZNOSCORE2
+                KILAM   IZNOSCORE1
+                LCALL   BUBOREK
+                JB      LEPHET,DEMO_V
+                KILAM   IZTILOS
+                KILAM   IZSZABAD
+                LCALL   PLAYDART
+                JB      LEPHET,DEMO_V
+                MOV     A,#I_NO1+I_NO2+I_TIL+I_SZA
+                LCALL   L_LEC
+             ;   BELAM   IZNOSCORE1
+             ;   BELAM   IZNOSCORE2
+             ;   BELAM   IZTILOS
+             ;   BELAM   IZSZABAD
+                LCALL   BUBOREK
+                JB      LEPHET,DEMO_V
+                MOV     A,#I_BUL
+                LCALL   L_LEC
+             ;   BELAM   IZBULLEYE
+             ;   KILAM   IZNOSCORE1
+             ;   KILAM   IZNOSCORE2
+             ;   KILAM   IZTILOS
+             ;   KILAM   IZSZABAD
+                LCALL   DEMOPONT
+                JB      LEPHET,DEMO_V
+                KILAM   IZBULLEYE
+                LJMP    DEMO1
+                RET                     ; INNEN CSAK A KREDIT VISZI KI
+
+               DB 'DEMOV'
+
+DEMO_V          LCALL   LAMSOTET        ; GOMBOK LAMPAI
+                LCALL   LAMPALEC_OFF      ; SEGEDLAMPAK
+                CLR     P_DEMO          ; DEMO FAZIS VEGE
+                RET                     ; VEGE A DEMONAK, VAN KREDIT
+
+; A DEMO ALATTI LEPESIDOKBEN FIGYELI A DOBAST ES A KREDITET
+;>DEMODELAY
+
+DEMODELAY     PUSH   DREG
+              DELAY DEMDEL             ; KESLELTETES
+DMD1          JB    FLAGTIM,DMD2       ; HA LETELT, UGRAS
+              LCALL VANDOBAS
+              JNB   ROSSZDOB,DMD3      ; HA NINCS DOBAS, UGRIK
+              JB    CHAMP,DMD3         ; VERSENYEN NEM KELL SZIRENAZNI
+              XBYTE SZUN_SZIR,#0
+              JZ    DMD3     ; HA NEM KELL SZIRENAZNI, UGRIK
+              MOV     A,#H_SZIREN
+              LCALL   H_EFFEKT
+DMD3          LCALL KEYPRESSED
+              JZ    DMD3A
+              PUSH  B
+              MOV   B,#B_GIVMON        ; HANG
+              LCALL B_PLAYER
+              POP   B
+DMD3B         KEYCLR
+              LCALL KEYBE
+              JNZ   DMD3B              ; MEGVARJA, MIG ELENGEDIK
+DMD3A         LCALL COIN
+              MOV   A,KREDIT           ; KREDIT VIZSGALAT
+              JNZ   DMD4               ; HA VAN KREDIT, UGRAS
+              SJMP  DMD1
+DMD4          SETB  LEPHET             ; VOLT KREDIT, KILEPHET
+DMD2          POP   DREG
+              RET
+
+; KAPCOLOSOR DEMOJA
+;>DEMOKAP
+DEMOKAP        MOV      A,BREG
+               CJNE     A,#3,DMK1
+               LCALL    D_KAP1
+DMK1           CJNE     A,#4,DMK2
+               LCALL    D_KAP2
+DMK2           CJNE     A,#5,DMK3
+               LCALL    D_KAP3
+DMK3           CJNE     A,#6,DMK4
+               LCALL    D_KAP4
+DMK4           RET
+
+D_KAP1V1       LJMP     D_KAP1V         ; SEGED UGRO CIM
+D_KAP1         BELAM    IZGOMB16
+               BELAM    IZGOMB8
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP1V1
+               KILAM    IZGOMB16
+               KILAM    IZGOMB8
+               BELAM    IZGOMB1
+               BELAM    IZGOMB7
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP1V2
+               KILAM    IZGOMB1
+               KILAM    IZGOMB7
+               BELAM    IZGOMB2
+               BELAM    IZGOMB6
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP1V2
+               SJMP     DD_K
+D_KAP1V2       LJMP     D_KAP1V              ; SEGED UGRO CIM
+DD_K           KILAM    IZGOMB2
+               KILAM    IZGOMB6
+               BELAM    IZGOMB3
+               BELAM    IZGOMB5
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP1V2
+               KILAM    IZGOMB5
+               KILAM    IZGOMB3
+               BELAM    IZGOMB4
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP1V2
+               KILAM    IZGOMB4
+               BELAM    IZGOMB3
+               BELAM    IZGOMB5
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP1V2
+               KILAM    IZGOMB3
+               KILAM    IZGOMB5
+               BELAM    IZGOMB2
+               BELAM    IZGOMB6
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP1V2
+               KILAM    IZGOMB2
+               KILAM    IZGOMB6
+               BELAM    IZGOMB1
+               BELAM    IZGOMB7
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP1V
+               KILAM    IZGOMB1
+               KILAM    IZGOMB7
+               BELAM    IZGOMB8
+               BELAM    IZGOMB16
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP1V
+               KILAM    IZGOMB16
+               KILAM    IZGOMB8
+               LCALL    DEMODELAY
+D_KAP1V        RET                      ; VISSZATERES
+
+D_KAP2V1       LJMP     D_KAP2V         ; SEGED UGRO CIM
+D_KAP2         BELAM    IZGOMB16
+               BELAM    IZGOMB8
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP2V1
+               BELAM    IZGOMB1
+               BELAM    IZGOMB7
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP2V1
+               BELAM    IZGOMB2
+               BELAM    IZGOMB6
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP2V1
+               BELAM    IZGOMB3
+               BELAM    IZGOMB5
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP2V
+               BELAM    IZGOMB4
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP2V
+               KILAM    IZGOMB4
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP2V
+               KILAM    IZGOMB3
+               KILAM    IZGOMB5
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP2V
+               KILAM    IZGOMB2
+               KILAM    IZGOMB6
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP2V
+               KILAM    IZGOMB1
+               KILAM    IZGOMB7
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP2V
+               KILAM    IZGOMB16
+               KILAM    IZGOMB8
+               LCALL    DEMODELAY
+D_KAP2V        RET
+
+D_KAP3V1       LJMP     D_KAP3V         ; SEGED UGRO CIM
+D_KAP3         BELAM    IZGOMB8
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP3V1
+               BELAM    IZGOMB7
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP3V1
+               BELAM    IZGOMB6
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP3V1
+               BELAM    IZGOMB5
+               KILAM    IZGOMB8
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP3V1
+               BELAM    IZGOMB4
+               KILAM    IZGOMB7
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP3V
+               BELAM    IZGOMB3
+               KILAM    IZGOMB6
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP3V
+               BELAM    IZGOMB2
+               KILAM    IZGOMB5
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP3V
+               BELAM    IZGOMB1
+               KILAM    IZGOMB4
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP3V
+               BELAM    IZGOMB16
+               KILAM    IZGOMB3
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP3V
+               KILAM    IZGOMB2
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP3V
+               KILAM    IZGOMB1
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP3V
+               KILAM    IZGOMB16
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP3V
+D_KAP3V        RET
+
+D_KAP4V1       LJMP     D_KAP4V         ; SEGED UGRO CIM
+D_KAP4         BELAM    IZGOMB16
+               BELAM    IZGOMB8
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP4V1
+               BELAM    IZGOMB1
+               BELAM    IZGOMB7
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP4V1
+               BELAM    IZGOMB2
+               BELAM    IZGOMB6
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP4V
+               BELAM    IZGOMB3
+               BELAM    IZGOMB5
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP4V
+               BELAM    IZGOMB4
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP4V
+               KILAM    IZGOMB16
+               KILAM    IZGOMB8
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP4V
+               KILAM    IZGOMB1
+               KILAM    IZGOMB7
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP4V
+               KILAM    IZGOMB2
+               KILAM    IZGOMB6
+               LCALL    DEMODELAY
+               JB       LEPHET,D_KAP4V
+               KILAM    IZGOMB3
+               KILAM    IZGOMB5
+               LCALL    DEMODELAY
+               KILAM    IZGOMB4
+D_KAP4V        RET
+
+
+; A LEDEKET ES A PONTSZMOKAT MUTATO DEMO
+;>DEMOPONT
+DEMOPONT
+              MOV       BREG,#3          ; A 301 PONTSZAMAVAL KEZDUNK
+DEM2          MOV       DPTR,#KEZDPONT   ; KEZDOPONTSZAMOK BEIRASA
+              MOV       A,BREG
+              DEC       A
+              RL        A                ; SZOROZZUK KETTOVEL
+              PUSH      A
+              MOVC      A,@A+DPTR        ;
+              MOV       SZAZAS,A         ; SZAZASOK BETOLTVE
+              INC       DPTR
+              POP       A
+              MOVC      A,@A+DPTR
+              MOV       TIZEGY,A          ; TIZESEK, EGYESEK BETOLTVE
+              LCALL     PONTINIT          ; PONT INICIALIZALAS
+
+              MOV       JNUM,#1
+              MOV       DREG,#3
+              MOV       SEG,#2
+              LCALL     Z_NYILAK
+DEM1          MOV       JATAKT,JNUM
+              LCALL     PSZAMBE
+	      MOV	SNUM,SZAZAS		; SZAZASOK
+	      MOV	NUM,TIZEGY		; TIZESEK-EGYESEK
+              LCALL     PONTSZAM
+              MOV       NUM,#0
+              MOV       SEG,#0
+              LCALL     LAMPA
+              MOV       NUM,#0
+              MOV       SEG,#1
+              LCALL     LAMPA
+              MOV       NUM,#3
+              LCALL     TOMBLED
+              LCALL     DARTKIJ
+              LCALL     DEMOKAP
+              JB        LEPHET,DEM5
+DEM4	      MOV	SNUM,#0AAH
+	      MOV	NUM,#0AAH
+              LCALL     PONTSZAM
+              MOV       NUM,#1
+              MOV       SEG,#0
+              LCALL     LAMPA
+              MOV       NUM,#1
+              MOV       SEG,#1
+              LCALL     LAMPA
+              MOV       NUM,#0
+              LCALL     TOMBLED
+              LCALL     DARTKIJ
+              MOV       A,KREDIT                ; MEGNEZZUK, DOBTAK-E BE ?
+              JNZ       DEM5
+              LCALL     JATVALT
+              MOV       A,JNUM
+              CJNE      A,#5,DEM13
+              MOV       DREG,#3
+              MOV       SEG,#3
+              LCALL     Z_NYILAK
+              LJMP      DEM11
+DEM13         CJNE      A,#1,DEM11
+              MOV       A,BREG
+              ADD       A,#1
+              MOV       BREG,A
+              CJNE      A,#7,DEM12
+DEM5          RET
+;DEM5         MOV     A,#H_JODOB
+;             LCALL   H_EFFEKT
+;             RET                          ; VISSZATERES, MERT VOLT KREDIT
+
+DEM11         LJMP      DEM1
+DEM12         LJMP      DEM2
+
+
+;*****************************--
+
+
+
+KREDELEG        MOV     SNUM,#0FFH     ; MINDEN JATEKOT ENGED
+                RET                    ; TILTJA AZOKAT A JETEKOKAT, AMIRE
+                                       ; NEM ELEG A BEDOBOTT KREDIT (SNUM!)
+
+; A RUTIN VIZSGALJA, HOGY NEHEZITES GOMBJAT NYOTUK-E MEG ?
+; BEJOVO ADAT: JNUM - A LEHETSEGES NEHEZITESEK
+; BEJOVO ADAT: KEY - MEGNYOMOTT GOMB
+; KIMENO ADAT: KEY=0, HA NEHEZITES VOLT, EGYEBKENT KEY VALTOZATLAN
+;>NEHEZVIZSG
+NEHEZVIZSG      PUSH    B
+                PUSH    A
+                PUSH    BREG
+                MOV     A,JNUM          ; NEHEZITESEK VIZSGALATA
+                JNZ     NHV1            ; HA JNUM=0, NINCS NEHEZITES, KILEP
+                LJMP    NHG6
+NHV1            JNB     EQUBIT,NHG1     ; HA NINCS ENGEDELYEZVE, NEM IS NEZI
+                MOV     A,KEY
+        ;       KIIR
+                CJNE    A,#IZEQU,NHG1     ;  -EQUAL GOMB VAN NYOMVA ?
+                CPL     EQUAL             ; BIT INVERTALAS
+                JNB     EQUAL,NHG1
+                CLR     TEAM              ; TEAM ES EQUAL EGYUTT NEM MEGY
+                MOV     B,#B_EQUAL
+                LCALL   B_PLAYER
+                SJMP    NHG9             ; UGRAS A VEGERE
+NHG1            MOV     A,JNUM
+                JNB     DINBIT,NHG2     ; HA DOUBLE IN NINCS ENG., UGRAS
+                MOV     A,KEY          ;
+                CJNE    A,#IZDIN,NHG2  ;  - DOUBLEIN
+                CPL     DOUBIN         ; BIT INVERTALAS
+                JNB     DOUBIN,NHG9
+                MOV     B,#B_DOUBIN
+                LCALL   B_PLAYER
+                SJMP    NHG9
+NHG2            MOV     A,JNUM
+                JNB     DOUTBIT,NHG3    ; HA DOUB.OUT NINCS ENG., UGRAS
+                MOV     A,KEY          ;
+                CJNE    A,#IZDOUT,NHG3      ;  - DOUBLE OUT
+                CPL     DOUBOUT          ; BIT INVERTALAS
+                JNB     DOUBOUT,NHG3
+                MOV     A,BREG            ; MILYEN JATEK
+                CJNE    A,#GAME_CRICKET,NHG3A  ; HA NEM CR. UGRAS
+                MOV     B,#B_CRICKET21
+                LCALL   B_PLAYER
+                SJMP    NHG3B
+NHG3A           MOV     B,#B_DOUBOUT
+                LCALL   B_PLAYER
+NHG3B           CLR     MASTOUT           ; HA CRICKET, TORLI A MASIK BITET
+                SJMP    NHG9
+; MASTER OUT VIZSGALAT
+NHG3            MOV     A,JNUM
+                JNB     MASBIT,NHG4
+                MOV     A,KEY          ;
+                CJNE    A,#IZMAS,NHG4      ;  - MASTER OUT
+                CPL     MASTOUT           ; BIT INVERTALAS
+                JNB     MASTOUT,NHG4
+                MOV     A,BREG            ; MILYEN JATEK
+                CJNE    A,#GAME_CRICKET,NHG4A  ; HA NEM CR. UGRAS
+                MOV     B,#B_CRICKETTH
+                LCALL   B_PLAYER
+                SJMP    NHG4B
+NHG4A           MOV     B,#B_MASTOUT
+                LCALL   B_PLAYER
+NHG4B           CLR     DOUBOUT           ; HA CRICKET, TORLI A MASIK BITET
+                SJMP    NHG9
+; TEAM VIZSGALAT
+NHG4            MOV     A,JNUM
+                JNB     TEAMBIT,NHG9
+                MOV     A,KEY          ;
+                CJNE    A,#IZTEAM,NHG6      ;  - TEAM
+                CPL     TEAM            ; BIT INVERTALAS
+                JNB     TEAM,NHG9
+                MOV     B,#B_TEAM
+                LCALL   B_PLAYER
+                CLR     EQUAL          ; TEAM ES EQUAL EGYUTT NEM MEGY
+NHG9            KEYCLR                 ; BILL. ESEMENYT TOROLJUK, ELFOGADVA
+NHG6            POP     BREG
+                LCALL   PLUSZ_KOR
+                POP     A
+                POP     B
+                RET
+
+; HA A 01-ES JATEKOKHOZ NEHEZITES IS VAN, PLUSZ KOROKET AD A JATEKHOZ
+;>PLUSZ_KOR
+PLUSZ_KOR       PUSH    A
+                PUSH    CREG
+                MOV     A,BREG               ; JATEK SZAMA
+                CJNE    A,#GAME_301,PLK1
+                SJMP    PLK2
+PLK1            CJNE    A,#GAME_501,PLK3
+                SJMP    PLK2
+PLK3            CJNE    A,#GAME_701,PLK4
+                SJMP    PLK2
+PLK4            CJNE    A,#GAME_901,PLK5
+                SJMP    PLK2
+PLK5            CJNE    A,#GAME_301PARC,PLK6    ; HA EGYIK SEM, KILEPHET
+PLK2            JB      DOUBIN,PLK7
+                JB      DOUBOUT,PLK7
+                JB      MASTOUT,PLK7            ; BARMELY NEHEZITESKOR UGRIK
+                XRBYTE  JKORMAX,BREG            ; EREDETI BEOLVASASA
+                MOV     CREG,A
+                JNB      NO_LIMIT,MN8A     ; HA NEM VERSENY, JO A BEOLVASOTT
+                MOV      CREG,#99H         ; VERSENYEN 99 KOROS LEGYEN MINDEN
+MN8A            XBYTEKI  MOD_KMAX,BREG,CREG     ; MODOSITOTT ERTEK KIIRASA
+                LCALL   JKRED_IR
+                SJMP    PLK6                    ; KILEPHET
+PLK7            XRBYTE  JKORMAX,BREG
+                MOV     CREG,A               ; MENTESE
+                MOV     DPTR,#OPT_ROUND
+                MOVX    A,@DPTR
+                ADD     A,CREG               ; HOZZAADJUK
+                DA      A                    ; DEC. KONVERZIO
+                MOV     CREG,A               ; VISSZA CREG-BE
+                JNB     NO_LIMIT,MN8B     ; HA NEM VERSENY, JO A BEOLVASOTT
+                MOV     CREG,#99H         ; VERSENYEN 99 KOROS LEGYEN MINDEN
+MN8B            XBYTEKI MOD_KMAX,BREG,CREG
+                LCALL   JKRED_IR
+PLK6            POP     CREG
+                POP     A
+                RET
+
+; BEKAPCSOLJA AZ ENGEDELYEZETT NEHEZITESEKET A VILLOGTATASHOZ
+;>BENEHEZLAM
+BENEHEZLAM      MOV     A,JNUM          ; A-BA A LEHETSEGES NEHEZITESEK
+                JNB     A4,BLM1
+                BELAM   IZTEAM         ; TEAM
+BLM1            MOV     A,JNUM
+                JNB     A3,BLM2
+                BELAM   IZEQU           ; 01 EQUAL
+BLM2            MOV     A,JNUM
+                JNB     A2,BLM3
+                BELAM   IZDIN        ; DOUBLE IN
+BLM3            MOV     A,JNUM
+                JNB     A1,BLM4
+                BELAM   IZDOUT         ; BOUBLE OUT
+BLM4            MOV     A,JNUM
+                JNB     A0,BLM5
+                BELAM   IZMAS           ; MASTERS OUT IZZO BEKAPCSOLASA
+BLM5            BELAM   IZVALTO         ; VALTO IZZO BEKAPCSOLASA
+                RET
+
+
+; KI  NEHEZITESEKET A VILLOGTATASHOZ
+;>KINEHEZLAM
+KINEHEZLAM      MOV     A,JNUM          ; A-BA A LEHETSEGES NEHEZITESEK
+                JNB     A4,KNM1
+                JB     TEAM,KNM1        ; HA A BIT BE VAN KAPCSOLVA, EGHET
+                KILAM   IZTEAM         ; TEAM
+KNM1            MOV     A,JNUM
+                JNB     A3,KNM2
+                JB      EQUAL,KNM2
+                KILAM   IZEQU           ; '01 EQUAL
+KNM2            MOV     A,JNUM
+                JNB     A2,KNM3
+                JB      DOUBIN,KNM3
+                KILAM   IZDIN        ; DOUBLE IN
+KNM3            MOV     A,JNUM
+                JNB     A1,KNM4
+                JB      DOUBOUT,KNM4
+                KILAM   IZDOUT         ; BOUBLE OUT
+KNM4            MOV     A,JNUM
+                JNB     A0,KNM5
+                JB      MASTOUT,KNM5
+                KILAM   IZMAS           ; MASTERS OUT IZZO BEKAPCSOLASA
+KNM5            KILAM   IZVALTO         ; VALTO IZZO BEKAPCSOLASA
+                RET
+
+; A BEALLITOTT NEHEZITESEK LAMPAIT FOLYAMATOSAN EGVE KELL TARTANI. EZT A
+; RUTINT EZERT A VILLOGTATAS SORAN MEG KELL HIVNI, HOGY FOLY. EGJENEK
+
+;>NEHEZLAMMAR
+NEHEZLAMMAR      JNB     EQUAL,NLR1
+                 BELAM   IZEQU
+NLR1             JNB     DOUBIN,NLR2
+                 BELAM   IZDIN
+NLR2             JNB     DOUBOUT,NLR3
+                 BELAM   IZDOUT
+NLR3             JNB     MASTOUT,NLR4
+                 BELAM   IZMAS
+NLR4             JNB     TEAM,NLR5
+                 BELAM   IZTEAM
+NLR5             RET
+
+; A RUTIN ELLENORZI, HOGY ENGEDELYEZETT JATEKVALSZTO GOMBOT NYOMTUNK-E MEG.
+; BEJOVO ADAT: KEY - MEGNYOMOTT GOMB SORSZAMA
+; AZ ENG. JATEKOKAT VALAHOGY BE KELL VENNI !
+; KIMENO ADAT: C=1, HA ENGEDELYEZETTET NYOMTUNK, C=0, HA NEM
+; BEJOVO ADAT: KEY - A NYOMOGOMB SORSZAMA
+; JATEKGOMB KONVERZIOS TABLA
+JAT_GOMB    DB  0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0, 0, 9
+;>JATGOMBE
+JATGOMBE        CLR     C                    ; DEFAULT: NEM JO GOMB
+                CBYTE   JAT_GOMB,KEY         ; KONVERZIOS TABLA
+                JZ      JGE4                 ; HA NINCS GOMB, KILEP
+                SETB    C                    ; JO GOMB
+                MOV     KEY,A
+JGE4            RET
+
+; KIIRJA AZ EGY JATEKOSHOZ SZUKSEGES KREDITET A BAL FELSO KIJELZORE
+; ES A JATEK KORSZAMAT A KORSZAM KIJELZORE
+;>JKRED_IR
+JKRED_IR      PUSH      B
+              PUSH      SEG
+              PUSH      NUM
+              PUSH      JNUM
+              XRBYTE     JKREDIT,BREG       ; A JATEKHOZ TARTOZO KREDITSZAM
+              LCALL     BCD2SEG
+              MOV       NUM,A
+              MOV       B,#1
+              MOV       SEG,#0
+              MOV       JNUM,#1
+              LCALL     EGYSZAM
+              MOV       NUM,#9DH
+              MOV       B,#2
+              LCALL     EGYSZAM
+              MOV       NUM,#0AH
+              MOV       B,#3
+              LCALL     EGYSZAM          ; KREDIT KIIRATVA
+              XRBYTE    MOD_KMAX,BREG     ; MAX. KORSZAM KIIRAS
+              MOV       AKTKOR,A
+              LCALL     KORSZAM          ; KORSZAM IS KIIRATVA
+              LCALL     DARTKIJ
+              POP       JNUM
+              POP       NUM
+              POP       SEG
+              POP       B
+              RET
+
+VAN_CRIC     DB  0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0
+             DB  1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0
+
+VAN_LEDINV   DB  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+             DB  0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0
+
+
+GAM_KAP     DB  0, 8, 8, 6, 6, 6, 6, 7, 7, 1, 2, 16, 3, 1, 3, 16
+             DB  5, 5, 8, 7, 2, 4, 4, 5, 0, 0, 0
+
+
+; JATEKBEALLITAS. AZ AKTUALIS JATEK EZENTUL EZ LESZ. A RUTIN KIIRJA A
+; JATEK NEVET, BEALLITJA A LEHETSEGES NEHEZITESEKET.
+; BEJOVO ADAT: BREG - BEN A JATEK SZAMA
+; KIMENO ADAT: JNUM-BAN   A NEHEZITESEK
+;>JATBEALL
+JATBEALL      CLR       CRIC_GROUP         ; DEFAULT: NEM ILYEN JATEK
+              CLR       LED_INV
+              MOV       A,BREG             ; A JATEK SZAMA
+              MOV       DPTR,#VAN_CRIC     ; KRIKETT CSOPORT ?
+              MOVC      A,@A+DPTR
+              JZ        JBL3              ; NINCS, UGORHAT
+              SETB      CRIC_GROUP
+              MOV       A,BREG             ; HA NEM CRICKETT, NEM IS NEZI
+              MOV       DPTR,#VAN_LEDINV   ; KELL A LEDET INVERTALNI?
+              MOVC      A,@A+DPTR          ;
+              JZ        JBL3              ; NINCS, UGORHAT
+              SETB      LED_INV
+JBL3          MOV       A,BREG             ; UJRA A JATEK SZAMA
+              CLR       FLASH_GAME
+              CJNE      A,#GAME_FLASH_GAME,JBL1A
+              SETB      FLASH_GAME
+JBL1A         CLR       PUB_GAME           ; DEFAULT
+              CJNE      A,#GAME_PUB,JBL1   ; HA NEM PUB GAME, UGRAS
+              SETB      PUB_GAME
+JBL1          LCALL     CIMEK              ; A JATEK NEVENEK KIIRATASA
+              LCALL     JKRED_IR
+              LCALL     NEHEZINIT
+              LCALL     LAMSOTET          ; NEHEZITES LAMPAK KIKAPCS.
+              CBYTE     GAM_KAP,BREG      ; JATEK LAMPAJA EGJEN
+              LCALL     IZZOK_BE
+        ;      MOV       A,DREG
+        ;      CJNE      A,#9,JBL2          ; HA NEM 9, AKKOR UGRIK
+        ;      MOV       A,#16
+; JBL2         LCALL     IZZOK_BE           ; A VALASZTOTT JATEK GOMBJA EGJEN
+              MOV       DPTR,#T_NEHEZ      ; LEHETSEGE NEHEZITESEK TABLAZATA
+              MOV       A,BREG
+              DEC       A                  ; OFSETT 0-VAL KEZDODIK
+              MOVC      A,@A+DPTR          ; A-BAN A LEHETSEGE NEHEZITESEK
+              MOV       JNUM,A             ; JNUM-BAN A NEHEZITESEK
+              MOV       DPTR,#KEZDPONT     ; KEZDOPONTSZAMOK BEIRASA
+              MOV       A,BREG
+              DEC       A
+              RL        A                 ; SZOROZZUK KETTOVEL
+              PUSH      A
+              MOVC      A,@A+DPTR         ;
+              MOV       SZAZAS,A          ; SZAZASOK BETOLTVE
+              INC       DPTR
+              POP       A
+              MOVC      A,@A+DPTR
+              MOV       TIZEGY,A          ; TIZESEK, EGYESEK BETOLTVE
+              LCALL     PONTINIT          ; PONT INICIALIZALAS
+           ;  LCALL     DEBUG
+              CBYTE     BB_CONV,BREG           ; KONVERTALAS
+              MOV       B,A
+              LCALL     B_PLAYER
+              RET
+
+; JATEKVALASZTAS. A JATEKVALASZTO GOMBOK VILLOGNAK, AMIG MEG NEM NYOMJUK
+; VALAMELYIKET. HA MEGNYOMJUK AZ EGYIUKET, AKKOR AZ EGVE MARAD, ES VILLOGNAK
+; AZ ADOTT JATEKHOZ VALASZTHATO NEHEZITESEK. HA EKKOR UJRA JATEKVALASZTO
+; GOMBOT NYOMUNK, AKKOR EZ TORLI AZ ELOZOLEG KIVALASZTOTT JATEKOKT, ES
+; KEZDODIK MINDEN ELOLROL.
+
+
+; EGY ADOTT NYOMOGOMBHOZ TARTOZO JATEKOKAT ROTALJA KORBE-KORBE MINDEN UJABB
+; GOMBNYOMASRA. HA EGY MASIK JATEKVALASZTO GOMBOT NYOMUNK MEG, AKKOR KILEP.
+; BEJOVO ADAT: KEY -  A NYOMOGOMB SZAMA
+
+
+; BEKAPCSOLAS UTAN MEGNEZI, NYOMVA VAN-E VALAMELYIK GOMB.
+; A NYOMOTT GOMBNAK MEGFELELOEN ELINDITJA A MEGFELELO PROGRAMRESZT.
+; KIMENO ADAT: A - 1=> JATEK, 2=TESZT, 3=>SETUP
+;>SW_ONBILL
+SW_ONBILL       MOV     DPTR,#ST_FLAG   ; VAN FLAG ?
+                MOVX    A,@DPTR
+                JZ      SWO1            ; NINCS FLAG, UGRAS
+                CJNE    A,#ST_SETUP,SW0A  ; HA NEM SETUP, UGRIK
+                SJMP    ON_SETUP          ; SETUP-PAL INDULJON
+
+SW0A            CJNE    A,#ST_TEST,SWO2
+                SJMP    ON_TEST           ; TESZT-TEL INDUL
+
+SWO2            CJNE    A,#ST_FREE,SWO1
+                SETB    P_FREEGAME        ; SZABADJATEK LESZ
+                SJMP    ON_GAME
+
+SWO1            JB      P_SETUP,ON_SETUP  ; SETUP-PAL INDUL A GEP
+                JB      P_TEST,ON_TEST    ; TESZTTEL INDUL A GEP
+                JB      P_FREEGAME,ON_GAME
+                KEYCLR                    ; BILL. PUFFER TORLES
+ONB4B
+ONB4A           LCALL  CURKEY             ; MI VAN MEGNYOMVA ?
+                JZ     ON_GAME            ; SEMMI, MEHET A JATEK
+
+                AJMP   ONB3               ; NINCS TESZT VALTOGOMBBAL !!
+                CJNE   A,#IZVALTO,ONB3
+ON_TEST         MOV    A,#2               ; TESZT MOD KODJA
+                RET
+
+ON_SETUP        MOV     A,#3              ; SETUP MOD ELOKESZITESE
+                RET
+
+ONB3            CJNE   A,#IZGOMB1,ON_GAME   ; A TOBBI GOMB NEM ERDEKES
+                MOV    KREDIT,#0            ; KREDIT TORLES
+                CLR    A                    ; TORLESEK
+                MOV    DPTR,#KR_EDIT
+                MOVX   @DPTR,A
+                MOV    DPTR,#ERME_CH1       ; ERMESZAMLALOK IS MINDEN
+                MOVX   @DPTR,A              ; BEKAPCSOLASSAL UJRA INDULNAK
+                MOV    DPTR,#ERME_CH2
+                MOVX   @DPTR,A
+                MOV    DPTR,#ERME_CH3
+                MOVX   @DPTR,A
+                MOV    DPTR,#ERME_CH4
+                MOVX   @DPTR,A
+                MOV    DPTR,#ERME_CH5
+                MOVX   @DPTR,A
+            ;   MOV    DPTR,#ERME_CH6
+            ;   MOVX   @DPTR,A
+                LCALL  SETUPSAVE          ; KIIRAS AZ EEPROMBA
+
+ON_GAME         MOV    A,#1               ; JATEK UZEMMOD KODJA
+                RET
+
+;>SZUNETSZIR
+SZUNETSZIR ;  LCALL     DEB_HANG
+              PUSH  DREG
+              LCALL VANDOBAS
+              JNB   ROSSZDOB,SZSZ3      ; HA NINCS DOBAS, UGRIK
+              JB    CHAMP,SZSZ3         ; VERSENYEN NEM KELL
+              XBYTE SZUN_SZIR,#0
+              JZ    SZSZ3          ; HA NEM KELL SZIRENAZNI, UGRIK
+              MOV     A,#H_SZIREN
+              LCALL   H_EFFEKT
+SZSZ3         POP   DREG
+              RET
+
+;>F_SZUNETSZIR
+F_SZUNETSZIR    PUSH  DREG
+              LCALL VANDOBAS
+              JNB   ROSSZDOB,FSZSZ3      ; HA NINCS DOBAS, UGRIK
+              JB    CHAMP,FSZSZ3
+              XBYTE SZUN_SZIR,#0
+              JZ    FSZSZ3          ; HA NEM KELL SZIRENAZNI, UGRIK
+              MOV     A,#H_SZIREN
+              LCALL   H_EFFEKT
+FSZSZ3        POP   DREG
+              RET
+
+
+;>KMAX_MENT
+KMAX_MENT       PUSH    B
+                MOV     B,#24
+                MOV     DPTR,#JKORMAX   ; FORRAS TERULET CIME
+                MOV     P2,DPH
+                MOV     R0,DPL
+                MOV     DPTR,#MOD_KMAX  ; CEL TERULET CIME
+KMKM1           MOVX    A,@R0
+                MOVX    @DPTR,A
+                INC     R0
+                INC     DPTR
+                DJNZ    B,KMKM1
+                POP     B
+                RET
+
+
+; A JATEK REPLAY MENUJE. REPLAY GOMB UTAN EZ A RUTIN HIVODIK
+; MEG.
+;>REP_MENU
+REP_MENU        CLR     DOBJON
+                SETB    EA
+                JB      P_FREEGAME,RMN1 ; SZABADJATEKNAL NINCS DEMO
+                MOV     A,KREDIT        ; MEGNEZZUK, VAN-E KREDIT
+                JNZ     RMN1            ; HA VAN, TOVABB
+                LCALL   DEMO            ; MEGHIVJA A DEMOT, AMIG NINCS KREDIT
+                SJMP    FOMENU          ; AMIG NINCS KREDIT HIVJA A DEMOT
+;1.SZ. RESZ
+RMN1            LCALL   BUFINI           ; KEPERNYO TORLES
+                LCALL   KREDSZAM         ; KREDIT KIIRATAS
+                LCALL   DARTKIJ          ; KIJELZO IRAS
+                LCALL   LAMPALEC_OFF     ; LAMPALEC KIOLTAS
+                MOV     DPTR,#JAT_SORSZ  ; BEOLVASSUK AZ ELOZO JATEKOT
+                MOVX    A,@DPTR
+                MOV    BREG,A            ; BREG-BEN AZ AKT. JATEK SORSZAMA
+                PUSH    A
+                LCALL   RANDGEN          ; VELETLENSZAM GENERALAS
+                POP     A
+
+               LCALL  JATBEALL           ; EZ LESZ AZ AKTUALIS JATEK
+               LCALL  REPLAY_NEHEZ       ; NEHEZITESEK BEALLITASA
+               PUSH    B
+               MOV     B,#21             ; VELETLEN SZAM KELL 1-21 KOZOTT
+               LCALL   RANDOM            ; VELETLEN SZAM A SORSOLASHOZ
+               MOV     DPTR,#W_RAND      ; VELETLEN SZAM TAROLASA
+;              MOV     A,#3              ; DEBUG
+               MOVX    @DPTR,A
+               POP     B
+               LCALL  REPLAY_JATSZAM
+               MOV    A,MAXJAT
+               JZ     RMN1X              ; HA 0 JATEKOS LETT, MASHOVA UGRIK
+               LCALL  PONTKIIR
+               LCALL  DARTKIJ
+               LJMP    JTS1A             ; UGRAS A JATSZAM RUTINBA
+               ; FMNVEG                  ; UGRAS A MENU VEGERE
+RMN1X          CLR     VAN_REP
+               LJMP    BNH1
+               KEYCLR
+;              MOV     A,#55
+;              LCALL   SER_DEBUG
+               LJMP    FOMENU
+
+; A JATEK FOMENUJE. BEKAPCSOLAS ES INICIALIZALAS UTAN EZ A RUTIN HIVODIK
+; MEG.
+;>FOMENU
+FOMENU          JB      VAN_REP,REP_MENU   ; REPLAY GOMB ESETEN UGRAS
+                CLR     DOBJON
+                SETB    EA
+                JB      P_FREEGAME,FMN1 ; SZABADJATEKNAL NINCS DEMO
+                MOV     A,KREDIT        ; MEGNEZZUK, VAN-E KREDIT
+                JNZ     FMN1            ; HA VAN, TOVABB
+                LCALL   DEMO            ; MEGHIVJA A DEMOT, AMIG NINCS KREDIT
+                SJMP    FOMENU          ; AMIG NINCS KREDIT HIVJA A DEMOT
+;1.SZ. RESZ
+FMN1            LCALL   BUFINI          ; KEPERNYO TORLES
+            ;   FENYKI
+                LCALL   KREDSZAM        ; KREDIT KIIRATAS
+                LCALL   DARTKIJ         ; KIJELZO IRAS
+                LCALL   LAMPALEC_OFF      ; LAMPALEC KIOLTES
+                KEYCLR                  ; GOMB ESEMENY TORLES
+JATVAL          DELAY   VTIME           ; 3 TIZED SEC-ENKENT VILLOGTATUNK
+                SETB    SVILLOG          ; VILLOGAST JELZO BIT 1-BE
+                LCALL   GOMBLAMBE        ; NYOMOGOMBOK LAMPAI BEKAPCS.
+JTV1            JNB     FLAGTIM,JTV4     ; HA MEG NEM TELT LE, UGRIK
+                CPL     SVILLOG          ; VILLOGO BIT INVERTALAS
+                JB      SVILLOG,JTV2     ; HA NEM NULLA, UGRAS
+                LCALL   F_SZUNETSZIR
+                LCALL   LAMSOTET
+                DELAY   VTIME           ; IDOZITES BEALLITASA
+                SJMP    JTV4
+JTV2            LCALL   GOMBLAMBE       ; IZZOK BEKAPCS
+                DELAY   VTIME
+JTV4            LCALL   F_SZUNETSZIR
+                LCALL   COIN
+                JB      NOCRED,JTV4A    ; HA NEM DOBTAK, UGRAS
+           ;    LCALL   F_SZUNETSZIR
+                LCALL   KREDSZAM        ; KREDIT KIIRATAS
+                LCALL   DARTKIJ         ; MODOSULT A KIJELZO
+JTV4A           LCALL   F_SZUNETSZIR
+                MOV     KEY,#0
+                LCALL   KEYBE           ; NYOMOGOMB OLVASAS
+                JZ      JTV1
+                MOV     A,KEY
+                CJNE    A,#IZREPLAY,JTV4AX
+                SETB    VAN_REP
+                LCALL   LAMSOTET
+                KEYCLR
+                LJMP    REP_MENU
+JTV4AX          PUSH    A
+                LCALL   RANDGEN
+                POP     A
+                LCALL   JATGOMBE        ; ENGEDELYEZETT JATEKVALASZTO ?
+JTV_REP         JC      JATFORG         ; CARRY=1 LESZ, HA JATEKGOMB
+JTV7            KEYCLR                  ; GOMB ESEMENY TORLESE
+                AJMP    JTV1            ;
+
+;4.ABLAK
+;>JATFORG
+JATFORG       MOV    DREG,KEY             ; DREG-BEN ELMENTJUK KESOBBRE
+              KEYCLR                      ; ESEMENY TOROLVE
+JTF2          MOV    JATAKT,#0            ; A GOMBHOZ TARTOZO 1. JATEK
+JTF3          MOV    DPTR,#JATKAPCS1      ; KAPCSOLO KODOLAS LEIRO TABLA
+              MOV    A,DREG
+              DEC    A                   ; ELTOLAS NULLATOL KEZD
+              RL     A
+              RL     A                   ; SZORZAS NEGGYEL
+              ADD    A,JATAKT            ; HANYADIK JATEK
+              MOVC   A,@A+DPTR
+              JZ     JTF2                ; HA A=0, AKKOR KEZDODIK A KOR UJRA
+              MOV    BREG,A              ; BREG-BEN AZ AKT. JATEK SORSZAMA
+           ;  LCALL  SZUNETSZIR
+              LCALL  JATBEALL            ; EZ LESZ AZ AKTUALIS JATEK
+              LCALL  SZUNETSZIR
+              LCALL  BENEHEZLAM          ; NEHEZITESEK BEKAPCSOLASA
+              DELAY  VTIME               ; 3 TIZED SEC-ENKENT VILLOGTATUNK
+              SETB   SVILLOG             ; VILLOGAST JELZO BIT 1-BE
+BNH1          JNB    FLAGTIM,BNH4        ; HA MEG NEM TELT LE, UGRIK
+              CPL    SVILLOG             ; VILLOGO BIT INVERTALAS
+              JB     SVILLOG,BNH2        ; HA NEM NULLA, UGRAS
+              LCALL   KINEHEZLAM         ; NEHEZITESEK KIKAPCSOLASA
+              DELAY   VTIME              ; IDOZITES BEALLITASA
+              SJMP    BNH4
+BNH2          LCALL   BENEHEZLAM
+              DELAY   VTIME
+;5.ABLAK
+BNH4          LCALL   COIN
+              JB      NOCRED,BNH4A    ; HA NINCS ERME, UGRAS
+              LCALL   KREDSZAM        ; KREDIT KIIRATAS
+              LCALL   DARTKIJ
+BNH4A         LCALL   SZUNETSZIR
+         ;    LCALL   KEYPRESSED        ; NYOMOGOMB OLVASAS
+         ;    JZ      BNH1
+              LCALL   KEYBE             ; NYOMOGOMB BEOLVASAS
+              MOV     A,KEY             ;
+              JZ      BNH1              ; HA KEY = 0, VISSZA AZ ELEJERE
+              PUSH    B
+              MOV     B,#21             ; VELETLEN SZAM KELL 1-21 KOZOTT
+              LCALL   RANDOM            ; VELETLEN SZAM A SORSOLASHOZ
+              MOV     DPTR,#W_RAND      ; VELETLEN SZAM TAROLASA
+;             MOV     A,#3              ; DEBUG
+              MOVX    @DPTR,A
+          ;    LCALL   SER_DEBUG
+              POP     B
+              LCALL   NEHEZVIZSG
+              MOV     A,KEY
+              JZ      BNH1
+              LCALL   JATGOMBE          ; C=0, HA NEM JATEKVALASZTO
+              JNC     BNH6              ; HA NEM JAT. VAL. GOMB., UGRIK
+              MOV     A,KEY             ; UGYANAZ-E, AMI VOLT?
+              CJNE    A,DREG,BNF1       ; NEM UGYANAZ A GOMB, UGRIK
+              KEYCLR                    ; ESEMENY TORLESE
+         ;    MOV     DREG,A            ; DREG-BE A BILLENTYU
+              INC     JATAKT            ; KORSZAMLALO NOVELESE
+              MOV     A,JATAKT
+              CJNE    A,#4,JTF3         ; HA NEM LEPTE TUL A NEGYET, UGRIK
+              LJMP    JTF2              ; ELERTE A NEGYET, ALAPALLAPOT
+BNF1          LJMP   JATFORG            ; VISSZA A 4. ABLAKBA
+BNH6          MOV    A,KEY              ; UJRA BETOLTJUK
+              CJNE   A,#IZVALTO,BNH8    ; NEM A LEPTETO, UGRIK
+              KEYCLR                    ; GOMB TORLESE
+              LCALL  KINEHEZLAM
+              LCALL  TIM30MS
+BNH6X         LJMP   JATSZAM            ; JATEKOSOK SZAMANAK MEGHAT.
+BNH8          KEYCLR                    ; ISMERETLEN GOMB, TOROLJUK
+              LJMP   BNH1               ; VISSZA A 4. ABLAKBA
+
+FMNVEG        RET                       ; FOMENU RUTIN VEGE.
+
+
+; ELOLTJA A PONTSZAMRA UTALO LAMPAKAT
+;>POLAMKI
+POLAMKI          JB     ELVESZNYIL,PLM2  ; HA ELVESSZUK A NYILAT, KILEP
+                 DELAY  POLAM           ; KESLELTETES INICIALIZALAS
+PLM1             JNB     FLAGTIM,PLM1    ; HA MEG NEM TELT LE, VAR
+PLM2             KILAM  IZNOSCORE1
+                 KILAM  IZNOSCORE2
+                 KILAM  IZBULLEYE
+                 RET
+
+;************************************************
+; PONTSZAMNAK MEGFELELO LAMPA GYUJTASA
+; NOSCORE - 0 ERTEKU DOBAS, VAGY BULLEYE-50 PONT ESETEN MUKODIK
+; BEJOVO ADAT: CTPONT - AKTUALIS PONTSZAM
+;>PONTLAMP
+PONTLAMP         JB     ELVESZNYIL,PNLT2 ; HA NYILELVETEL VAN, VISSZATER
+                 KILAM  IZNOSCORE1       ;
+                 KILAM  IZNOSCORE2
+                 KILAM  IZBULLEYE
+                 MOV    A,CTPONT         ; AKTUALIS PONTSZAM BETOLTESE
+                 JNZ    PNLT1            ; NEM NULLA, UGRAS
+                 BELAM  IZNOSCORE1       ; "NO SCORE" DOBAS VOLT
+                 BELAM  IZNOSCORE2
+                 SJMP   PNLT2
+PNLT1         ;  MOV    A,CTPONT
+              ;  LCALL  KIIRAS8
+                 CJNE   A,#50H,PNLT3     ; HA CTPONT<>50, AKKOR KILEPHET
+                 MOV    A,DREG
+                 CJNE   A,#8,PNLT3C      ; HA LOSCORE, NEM KELL
+                 SJMP   PNLT3A
+PNLT3C           BELAM  IZNOSCORE1
+                 BELAM  IZNOSCORE2              ; LOSCORE-BAN EZ NO-SCORE !!
+                 SJMP   PNLT2
+PNLT3A           BELAM  IZBULLEYE
+                 SJMP   PNLT2
+PNLT3            CJNE   A,#25H,PNLT2        ; HA CTPONT<>50, AKKOR KILEPHET
+                 MOV    A,DREG
+              ;  LCALL  KIIRAS8
+                 CJNE   A,#4,PNLT2          ; HA LOSCORE, NEM KELL
+PNLT3B           BELAM  IZBULLEYE
+PNLT2            RET
+
+;*********************************************
+; DOBASOK VEGET JELZO TILOS RUTIN.
+; BEJOVO ADAT: JNUM - JATEKOS SZAMA (1-8)
+;>TILOS
+TILOS       ;  FLAMKI JNUM
+               KILAMPALEC
+             ;  KILAM  IZSZABAD
+             ;  KILAM  IZVALTO
+             ;  BELAM  IZTILOS
+             ;  KILAM  IZNOSCORE1
+             ;  KILAM  IZNOSCORE2
+               RET
+
+
+; ***************************
+; KOVETKEZO DOBANDO PONTSZAM
+; ****************************
+; MINDEN JATEKOS DOBASAI ELOTT KIIRJA A KOZEPSO KIJELZARE A DOBANDO SZAMOT
+KOV_PONT  AJMP   KP_NULLA           ; 1.  HI SCORE
+          AJMP   KP_NULLA           ; 2.  LOW SCORE
+          AJMP   KP_01GAMES         ; 3.  301
+          AJMP   KP_01GAMES         ; 4.  501
+          AJMP   KP_01GAMES         ; 5.  701
+          AJMP   KP_01GAMES         ; 6.  901
+          AJMP   KP_SHANGHAI        ; 7.  SHANGHAI
+          AJMP   KP_NULLA           ; 8.  PUB GAME
+          AJMP   KP_NULLA           ; 9.  CRICKET21
+          AJMP   KP_NULLA           ; 10. CRICKET
+          AJMP   KP_NULLA           ; 11. CRICKET THROAT
+          AJMP   KP_NULLA           ; 12. FIVES
+          AJMP   KP_BLACK_OUT       ; 13. BLA_CRICKET
+          AJMP   KP_HALVES          ; 14. HALVES
+          AJMP   KP_NULLA           ; 15. ABS_CRICKET
+          AJMP   KP_TRENING         ; 16. TRENING
+          AJMP   KP_01GAMES         ; 17. 301 PARCHESSI
+          AJMP   KP_NULLA           ; 18. HARD_SCORE
+          AJMP   KP_NULLA           ; 19. FLASH_GAME
+          AJMP   KP_PAIR_CR         ; 20. PAIR_CRIC
+          AJMP   KP_REDMASTER       ; 21. REDMASTER
+          AJMP   KP_BULLMASTER      ; 22. BULLMASTER
+          AJMP   KP_TRENING         ; 23. TRENING UP
+
+;>KOVJPONT
+KOVJPONT       PUSH    NUM             ; HASZNALT REGISZTEREK MENTESE
+               PUSH    SNUM
+               MOV     A,BREG              ; JATEK SZAMANAK BETOLTESE
+               DEC     A                   ; NULLATOL KEZD A TABLAZAT
+               RL      A                   ; SZORZAS KETTOVEL
+               MOV     DPTR,#KOV_PONT      ; TABLAZAT KEZDOCIME
+               JMP     @A+DPTR             ; UGRAS A CIMRE
+
+
+KP_SHANGHAI    MOV     DPTR,#BELEPETT      ; BELEPETT-E A JATEKOS ?
+               MOV     DPL,JNUM
+               MOVX    A,@DPTR             ; BEHOZZUK AZ ERTEKET
+               MOV     NUM,A               ; NUM-BAN A DOBANDO SZAM
+               MOV     SNUM,#0
+               LJMP    KP_END1
+
+KP_TRENING     LCALL   TRA_DOB
+               AJMP    KP_END3
+               MOV     DPTR,#BELEPETT      ; KOVETKEZO DOBANDO SORSZAM
+               MOV     DPL,JNUM
+               MOVX    A,@DPTR             ; BEHOZZUK AZ ERTEKET
+               MOV     NUM,A               ; NUM-BAN A SORSZAM
+               JB      TR_DOWN,KP_TR1      ; HA LEFELE MEGYUNK, UGRAS
+               CBYTE   TR_U,NUM            ; FELFELE HALADUNK
+               SJMP    KP_TR1B
+KP_TR1         CBYTE   TR_D,NUM            ; LEFELE HALADUNK
+KP_TR1B        MOV     NUM,A
+               MOV     SNUM,#0
+               LJMP    KP_END2             ; NE IRJON A 21H HELYETT BULLT
+
+KP_HALVES      MOV     DPTR,#HAL_CEL       ; BEHOZZUK A DOBANDO SZAMOT
+               MOV     A,AKTKOR            ; AKT. MENET SZAMA
+               DEC     A                   ; NULLAVAL KEZDODJON
+               MOV     B,#3                ; HAROMMAL SZORZUNK
+               MUL     AB                  ; A-BAN AZ ELTOLAS
+               ADD     A,NRDART            ; HANYADIK NYIL ?
+               ADD     A,DPL
+               MOV     DPL,A
+               MOVX    A,@DPTR             ; A-BAN A DOBANDO SZAM
+               MOV     NUM,A
+               MOV     SNUM,#0
+KP_SEGED       LJMP    KP_END1             ; SEGED UGROCIMNEK IS HASZNALJUK
+
+KP_01GAMES     LCALL   KISZALL             ; KILEPESI SEGITSEG
+               JNZ     KP_SEGED            ; HA KIIRTUNK, UGRIK
+               AJMP    KP_NULLA            ; HA NINCS KISZALLO, UGRIK
+
+KP_BLACK_OUT   MOV     DPTR,#BLA_DOB       ; BETOLTJUK A DOBANDO SZAM
+               MOVX    A,@DPTR             ; SORSZAMAT
+               MOV     DPTR,#BLA_SZAM
+               MOVC    A,@A+DPTR           ; SORSZAM ALAPJAN A SZAM
+               CJNE    A,#25H,KP_BL1       ; HA NEM BULL, UGRIK
+               MOV     NUM,#21H            ; BULL-T IRJUNK KI
+               MOV     SNUM,#0
+           ;   MOV     A,#H_KISZHANG       ; JELZES A DOBASRA
+           ;   LCALL   H_EFFEKT
+               SJMP    KP_END1
+KP_BL1         MOV     NUM,A               ; NUM -BEN LEGYEN
+               MOV     SNUM,#0
+           ;   MOV     A,#H_KISZHANG       ; JELZES A DOBASRA
+           ;   LCALL   H_EFFEKT
+               JNZ     KP_SEGED            ; HA KIIRTUNK, UGRIK
+
+KP_BULLMASTER  LCALL   BULL_PIROS_KI      ; PIROS VONALAT OLTJA
+               LCALL   BULL_PIROS_BE      ; PIROS VONALAT GYUJTJA
+               LCALL   BULL_KELL           ; MEGNEZI, BULLT KELL-E DOBNI
+               JZ      KP_NULLA            ; HA NEM, NULLAT IRATUNK
+               MOV     NUM,#21H            ; BULL-T KELL KIIRNI
+               MOV     SNUM,#0H
+               LJMP    KP_END1
+
+KP_REDMASTER   LCALL   RED_KELL            ; RED SZOT IRATJUK KI
+               LJMP    KP_END3             ; UGRAS A LEGVEGERE
+
+KP_PAIR_CR     LCALL   LED_OLT             ; KP_NULLA MEHET UTANA
+               LCALL   PONTKIIR
+               LCALL   DARTKIJ             ;
+
+KP_NULLA       MOV     NUM,#0A0H           ; NULLAT KELL KIIRATNI
+               MOV     SNUM,#0AH           ; A SZAZASOK HELYEN SEMMI SINCS
+KP_END1        MOV     A,NUM               ; MEGNEZZUK, MIT IRAT KI
+               CJNE    A,#21H,KP_END2      ; HA NEM BULL, UGRIK
+               LCALL   SBULL               ; BULL SZO KOZEPRE
+               SJMP    KP_END3             ; VISSZATERHET
+KP_END2        LCALL   HIDEZERO
+KP_END4        MOV     JNUM,#9             ; KOZEPSO PONTKIJELZO NULLAZASA
+               LCALL   PONTSZAM            ; IRAS A PONTSZAM TERULETRE
+               LCALL   DARTKIJ             ; IRAS A KIJELZORE
+KP_END3        POP     SNUM
+               POP     NUM
+               RET                         ; VISSZATER A KOVJPONT RUTIN
+
+;**********************************************
+
+; KILEPESHEZ SEGITSEGET NYUJT
+;>KISZALL
+KISZALL        SETB    KISZ_HAT
+               JB      ELVESZNYIL,KSL2      ; HA ELVESZNYIL VAN, KILEP
+               JNB     DOUBOUT,KSL1         ; HA NEM DOUBLE OUT, UGRIK
+               LCALL  PSZAMBE               ; PONTSZAM BEHIVAS
+               MOV    A,SZAZAS              ; SZAZASOK VIZSGALATA
+               JNZ    KSL2                  ; HA VAN SZAZAS, UGRIK
+               MOV    A,TIZEGY
+               LCALL  BCD2BIN               ; BINARISRA ALAKITJUK
+               MOV    AREG,A                ; ATMENTES
+               CLR    C
+               SUBB   A,#51                 ; MEGNEZZUK, NAGYOBB-E 50-NEL
+               JNC    KSL2                  ; NAGYOBB A PONT, NEM IRUNK KI
+               MOV    DPTR,#KIDOUT          ; A HARMADIK BYTE-OT NEZZUK
+               MOV    A,AREG
+               RL     A                     ; A-T KETTOVEL SZOROZZUK
+               MOV    NUM,A                 ; ELMENTJUK
+               MOVC   A,@A+DPTR             ; BEHOZZUK AZ ADATOT
+               MOV    SNUM,A                ; MEGVAN A SZAZAS
+               MOV    A,NUM
+               INC    DPTR
+               MOVC   A,@A+DPTR
+               JZ     KSL2                  ; HA NULLA AZ EREDMENY, KILEP
+               MOV    NUM,A                 ; TIZESEK, EGYESEK IS MEGVANNAK
+               SJMP   KSL3                  ; KIIRTUNK
+KSL1           LCALL  PSZAMBE
+               MOV    A,SZAZAS              ; SZAZASOK VIZSGALATA
+               JNZ    KSL2                  ; HA VAN SZAZAS, UGRIK
+               MOV    A,TIZEGY
+               LCALL  BCD2BIN               ; BINARISRA ALAKITJUK
+               MOV    AREG,A                ; ATMENTES
+               CLR    C
+               SUBB   A,#61                 ; MEGNEZZUK, NAGYOBB-E 60-NAL
+               JNC    KSL2                  ; NAGYOBB A PONT, NEM IRUNK KI
+               MOV    DPTR,#KIMAST          ; A HARMADIK BYTE-OT NEZZUK
+               MOV    A,AREG
+               RL     A                     ; A-T KETTOVEL SZOROZZUK
+               MOV    NUM,A                 ; ELMENTJUK
+               MOVC   A,@A+DPTR             ; BEHOZZUK AZ ADATOT
+               MOV    SNUM,A                ; MEGVAN A SZAZAS
+               MOV    A,NUM
+               INC    DPTR
+               MOVC   A,@A+DPTR
+               JZ     KSL2                  ; HA NULLA, KILEPHET
+               MOV    NUM,A                 ; TIZESEK, EGYESEK IS MEGVANNAK
+KSL3           CLR    KISZ_HAT              ; MEHET A KISZALLOHANG
+               MOV    A,#1                  ; JELEZZUK, HOGY KIIRTUNK
+               RET
+KSL2           CLR    A                     ; JELEZZUK, HOGY NEM IRTUNK KI
+               RET
+
+; A KOVETKEZO JATEKOSNAK MEGADJA A HAROM NYILAT
+;>SZABAD
+SZABAD         FLAMBE  JNUM              ; JATEKOS KIJELZO FOLOTTI LAMPAI
+               PUSH    JNUM
+               LCALL   KOVJPONT          ; KOVETKEZONEK DOBANDO PONT
+               MOV     C,KISZ_HAT        ; EZ MIERT VAN BENNE ? &&&
+               JB      KISZ_HAT,SZB3     ; HA NINCS KISZALLOHANG, UGRAS
+               MOV     A,#H_KISZHANG     ; KISZALLASI LEHETOSEG
+               LCALL   H_EFFEKT
+SZB3           MOV     A,#JAT_SZAB       ; LAMPALEC VALTAS
+               LCALL   L_LEC             ;
+               POP     JNUM
+               RET
+
+; VALTAS A KOVETKEZO JATEKOSRA.
+; KIMENO ADAT: JNUM - A KOVETKEZO JATEKOS
+;>JATVALT
+JATVALT         PUSH    DPL
+                PUSH    DPH
+                PUSH    A
+                JB    TEAM,JTVT2       ; HA TEAM, UGRIK
+                MOV   A,JNUM           ; MEGNEZZUK, MAXJAT-E
+                CJNE  A,MAXJAT,JTVT8   ; HA NEM, UGRAS
+                MOV   JNUM,#1          ; UJRA 1-EL KEZDODIK
+                POP   A
+                POP   DPH
+                POP   DPL
+                RET
+JTVT8           MOV   DPTR,#JATKOV     ; KOV. JATEKOS TABLA BETOLTES
+                MOV   A,JNUM
+                MOVC  A,@A+DPTR        ; KOVETKEZO JATEKOS BEOLVASASA
+                MOV   JNUM,A
+                POP   A
+                POP   DPH
+                POP   DPL
+                RET                    ; VISSZATERES
+
+; TEAM ESETEN EGYEDI TABLAK VANNAK
+JTVT2           MOV   A,MAXJAT
+                CJNE  A,#4,JTVT3
+                MOV   DPTR,#TEAMJAT4    ; MAXJAT =4
+                SJMP  JTVT7
+JTVT3           CJNE  A,#3,JTVT4
+                MOV   DPTR,#TEAMJAT3    ; MAXJAT = 3
+                SJMP  JTVT7
+JTVT4           CJNE  A,#2,JTVT5
+                MOV   DPTR,#TEAMJAT2    ; MAXJAT = 2
+                SJMP  JTVT7
+JTVT5           MOV   DPTR,#TEAMJAT1
+JTVT7           MOV   A,JNUM
+                MOVC  A,@A+DPTR
+                MOV   JNUM,A           ; KOV. JATEKOS BEOLVASASA
+                POP   A
+                POP   DPH
+                POP   DPL
+                RET
+
+;**************************************************************
+; A JATEKOSOK SZAMANAK BEALLITASA. A KEZDO ALLAPOT EGY JATEKOS,
+; A LEPTETOGOMB MINDEN MEGNYOMASA UTAN NOVEKSZIK A JATEKOSOK SZAMA.
+; HA ELERI A NYOLCAT, A KOVETKEZO NYOMASRA UJRA EGY JATEKOS LESZ BEALLITVA.
+; HA EGY IDEIG NEM NYOMUNK SEMMIT (5 SEC), AKKOR AZ AKTUALIS ALLAPOT
+; VEGLEGES LESZ.
+
+VARAKOZ         EQU     17
+
+; A JATEKOSOK SZAMAT ALLITJA BE
+; CSAK AKKOR AD JATEKOST, A ELEG A KREDITEK SZAMA !!
+;>JATSZAM
+JATSZAM       MOV   MAXJAT,#0           ; A MAX. JAT. SZAM 1.
+              LCALL MAXJATNOV           ; KEZDETI JATEKOSSZAM BEALLITAS
+              LCALL SZUNETSZIR
+              MOV   A,MAXJAT            ; MEGNEZZUK, NULLA MARADT-E ?
+              JNZ   JTS1A
+              LJMP  BNH8                ; UGRAS VISSZA A "JATFORG"-BA
+JTS1A         MOV   AREG,#VARAKOZ       ; VARAKOZAS INICIALIZALASA
+              KILAMPALEC
+              DELAY  VTIME
+              SETB   SVILLOG            ; VILLOGAST JELZO BIT 1-BE
+              BELAM IZVALTO             ; VALTOGOMB VILAGIT
+JTS1          JNB     FLAGTIM,JTS4      ; HA MEG NEM TELT LE, UGRIK
+              CPL     SVILLOG
+              JB      SVILLOG,JTS2       ; HA NEM NULLA, UGRAS
+              KILAM   IZVALTO           ; VALTOGOMB ELALSZIK
+              DELAY   VTIME                 ; IDOZITES BEALLITASA
+              MOV     A,AREG
+              DEC     A                 ; VARAKOZAS CSOKKENTESE
+JTS1C         JZ      JTS5              ; LETELT A VARAKOZAS, KILEPES
+              MOV     AREG,A            ; VISSZATAROLAS
+              SJMP    JTS4
+JTS2          BELAM   IZVALTO
+              DELAY   VTIME
+              MOV     A,AREG
+              DEC     A                 ; VARAKOZAS CSOKKENTESE
+              JZ      JTS5              ; LETELT A VARAKOZAS, KILEPES
+              MOV     AREG,A            ; VISSZATAROLAS
+JTS4          LCALL   COIN
+              JB      NOCRED,JTS4A    ; HA NEM DOBTAK, UGRAS
+              LCALL   KREDSZAM        ; KREDIT KIIRATAS
+              LCALL   DARTKIJ
+JTS4A         LCALL   SZUNETSZIR
+            ; LCALL   TIM30MS
+              KEYCLR
+              LCALL   KEYBE             ; NYOMOGOMB OLVASAS
+              MOV     A,KEY             ;
+              JZ      JTS1              ; HA KEY = 0, VISSZA AZ ELEJERE
+              CLR      C                ; CARRY TORLESE
+              SUBB     A,#LEPTETO       ; KIVONJUK A KERESETT GOMB KODJAT
+              KEYCLR                    ; ESEMENY TORLESE
+              JZ       JJTS1
+              LJMP     FMN1             ; NEM A VALTOGOMB, VISSZA A FOMENURE
+JJTS1         LCALL    KREDELEG         ; KREDIT VIZSGALAT
+              LCALL    SZUNETSZIR
+              LCALL    MAXJATNOV        ; JATEKOSSZAM NOVELESE
+              MOV      AREG,#VARAKOZ    ; VARAKOZAS UJRAKEZDESE
+              SJMP     JTS1             ; VISSZA AZ ELEJERE
+JTS5          KILAM    IZVALTO
+              LJMP     FMNVEG           ; UGRAS A FOMENU VEGERE
+
+; A JATEKOSOK SZAMAT ALLITJA, A TEAM-ET IS FIGYELI
+;>MAXJATNOV
+MAXJATNOV     PUSH   AREG
+              PUSH   B
+              JB     TEAM,MXJ1          ; HA TEAM, ELUGRIK
+; EGYENI KREDITVIZSGALAT
+              MOV    A,MAXJAT           ;
+              CJNE   A,#8,MXJ30         ; HA NEM 8 JATEKOS VAN, AKKOR ELL.
+              SJMP   MXJ31              ; 8 JATEKOS UTAN EGY JON, JOHET IS
+MXJ30         XRBYTE  JKREDIT,BREG      ; A JATEKHOZ TARTOZO KREDIT BEHIVASA
+              MOV    AREG,MAXJAT        ; AREG-GEL ELLENORIZZUK
+              INC    AREG
+              JNB     PUB_GAME,MXJ30B   ; HA NEM PUB GAME, UGRIK
+              PUSH    A
+              CBYTE   KRED_CON,AREG
+           ;  LCALL   P_DISP
+              MOV     AREG,A               ; ENNYI JATEKOSSAL KELL SZAMOLNI
+              POP     A
+              SJMP    MXJ30A
+MXJ30B        JNB     FLASH_GAME,MXJ30A   ; HA NEM PUB GAME, UGRIK
+              PUSH    A
+              CBYTE   KRED_FLASH,AREG
+           ;  LCALL   P_DISP
+              MOV     AREG,A               ; ENNYI JATEKOSSAL KELL SZAMOLNI
+              POP     A
+
+MXJ30A        MOV    B,AREG             ; SZORZASHOZ ATTESSZUK B-BE
+              MUL    AB                 ; OSSZESZOROZZUK
+              MOV    B,A                ; B-BE TAROLJUK A SZUKSEGES KREDITET
+              MOV    A,KREDIT
+              LCALL  BCD2BIN            ; A MEGLEVO KREDIT BINARISAN VAN
+              JB     P_FREEGAME,MXJ31   ; HA SZABADJATEK VAN, NEM IS NEZI
+              CLR    C                  ; CARRY TORLESE
+              SUBB   A,B
+              JNC    MXJ31              ; HA CARRY KELETKEZIK, KEVES A KREDIT
+           ;   JNB    PUB_GAME,MXJ22B    ; HA NEM PUB GAME, UGRAS, KEVES
+           ;   MOV    A,KREDIT           ; A-BA A KREDITET
+           ;   LCALL  BCD2BIN
+           ;   RL     A
+           ;   RL     A                  ; SZOROZZUK NEGGYEL A KREDITET
+           ;   CLR    C
+           ;   SUBB   A,B                ; UJRA MEGNEZZUK
+           ;   JNC    MXJ31
+MXJ22B        PUSH   B
+              MOV    B,#B_GIVMON
+              LCALL  B_PLAYER
+              SETB   KELL_MONEY
+              POP    B
+              MOV    A,MAXJAT
+              CJNE   A,#0,MXJ10       ; HA MAXJAT NEM NULLA, UGRAS
+MXJ2C         LJMP   MXJ2              ; MAXJA=0-VAL KILEP
+
+
+MXJ31         INC    MAXJAT             ; JATEKOS NOVELESE
+              MOV    A,#9               ; ELERTE A MAXIMUMOT ?
+              CJNE   A,MAXJAT,MXJ2C     ; MEG NEM, UGRAS
+MXJ10         MOV    MAXJAT,#1          ; UJRA LEGYEN 1
+MXJ20      ;   CLR    EA                 ; MEGSZAKITAS TILTAS
+              LCALL    BUFINI           ; KIJELZO BUFFER INIT.
+              LCALL    KREDSZAM
+              LCALL    DARTKIJ
+         ;    LCALL    KILAMPA
+              LJMP   MXJ2               ; UGRAS A TABLAHOZ
+; KREDIT VIZSGALAT CSAPATOK SZERINT
+MXJ1          MOV    AREG,MAXJAT        ; MAXJAT HELYETT AREG-GEL VIZSG.
+              INC    AREG               ; CSAPAT SZAM NOVELES
+              MOV    A,#1
+              CJNE   A,AREG,MXJ11       ; HA EGY, AKKOR LEGYEN KETTO
+              MOV    MAXJAT,#0          ; HA NEM ELEG, NULLA LEGYEN
+              XRBYTE  JKREDIT,BREG      ; A SZUKSEGES KREDIT SZAM
+              MOV    B,#4               ; 4 JATEKOSRA VALO KELLENE
+              MUL    AB                 ; OSSZESZOROZZUK
+              MOV    B,A                ; B-BEN A NEGYHEZ SZUKS. KREDIT
+              MOV    A,KREDIT
+              LCALL  BCD2BIN
+              JB     P_FREEGAME,MXJ11A  ; SZABADJATEKNAL NEM VIZSGAL
+              CLR    C
+              SUBB   A,B
+              JNC    MXJ11A               ; HA CARRY KELETKEZIK, NEM ELEG !
+              PUSH    B
+              MOV     B,#B_GIVMON
+              LCALL   B_PLAYER
+              SETB    KELL_MONEY
+              POP     B
+              SJMP    MXJ2
+MXJ11A        MOV    MAXJAT,#2          ; TEAMNEL MIN. KET CSAPAT KELL
+              SJMP   MXJ2
+MXJ11         MOV    A,#5               ; ELERTE A MAX.-OT?
+              CJNE   A,AREG,MXJ33       ; MEG NEM, UGRAS
+              MOV    MAXJAT,#2          ; ITT LEHET TOVABB ENGEDNI
+              SJMP   MXJ20              ; UJRA LEGYEN 1
+MXJ33         MOV    A,AREG             ; VISSZACSOKKENTJUK HIBA ESETERE
+              MOV    B,#2
+              MUL    AB                 ; A-BAN A JATEKOSOK LEENDO SZAMA
+              MOV    B,A
+              XRBYTE  JKREDIT,BREG       ; BEHOZZUK A SZUKSEGEST
+              MUL    AB
+              MOV    B,A                ; A SZUKSEGES SZORZAT B-BEN
+              MOV    A,KREDIT
+              LCALL  BCD2BIN
+              JB     P_FREEGAME,MXJ2A
+              CLR    C
+              SUBB   A,B
+              JNC     MXJ2A
+              PUSH    B
+              MOV     B,#B_GIVMON
+              LCALL   B_PLAYER
+              SETB    KELL_MONEY
+              POP     B
+              MOV    A,MAXJAT
+              CJNE   A,#0,MXJ23A       ; HA MAXJAT NEM NULLA, UGRAS
+              LJMP   MXJ2              ; MAXJA=0-VAL KILEP
+MXJ23A        MOV    MAXJAT,#2         ; KEZDODJON ELOLROL A KOR
+              LJMP   MXJ20
+
+MXJ2A         INC    MAXJAT             ; MEHET A NOVELES
+MXJ2          MOV    DPTR,#JATSZIK      ; JATEKOS TABLA CIME
+              MOV    B,#8               ; MINDET KINULLAZZUK
+              CLR    A
+MXJ3          INC    DPTR
+              MOVX   @DPTR,A            ; INIT. ERTEK
+              DJNZ   B,MXJ3             ; TABLAZAT INICIALIZALVA
+              MOV    DPTR,#JATSZIK      ; UJRA A TABLA CIME
+              MOV    A,MAXJAT           ; HA MAXJAT=0, UGRAS
+              JZ     MXJ5               ; KILEPES
+              MOV    B,MAXJAT
+              MOV    DPL,B              ; ELTOLAST SZAMITUNK (LSB=0)
+              MOV    A,#1               ; JATEKOS MEGJELOLESE
+MXJ4          MOVX   @DPTR,A            ; BEJEGYZES
+              DEC    DPL                ; CIM CSOKKENTESE
+              DJNZ   B,MXJ4             ; A JATEKOSOK BEJEGYZESE
+              JNB    TEAM,MXJ5          ; HA NINCS TEAM, KESZ IS VAGYUNK
+              MOV    A,MAXJAT           ; A CSAPATOK SZERINT KIPOTOLJUK
+              CJNE   A,#4,MXJ6
+              MOV    DPTR,#JATSZIK      ; UJRA A TABLA CIME
+              MOV    DPL,#8             ; ELTOLAST SZAMITUNK (LSB=0)
+              MOV    A,#1               ; JATEKOS MEGJELOLESE
+              MOVX   @DPTR,A            ; BEJEGYZES 8. JATEKOSHOZ
+              MOV    DPL,#6
+              MOVX   @DPTR,A            ; BEJEGYZES A 6. JATEKOSHOZ
+              SJMP   MXJ66
+MXJ6          CJNE   A,#3,MXJ7          ; HA MAXJAT<>3, UGRAS
+MXJ66         MOV    DPTR,#JATSZIK      ; UJRA A TABLA CIME
+              MOV    DPL,#7             ; ELTOLAST SZAMITUNK (LSB=0)
+              MOV    A,#1               ; JATEKOS MEGJELOLESE
+              MOVX   @DPTR,A            ; BEJEGYZES 7. JATEKOSHOZ
+              MOV    DPL,#5
+              MOVX   @DPTR,A            ; BEJEGYZES A 5. JATEKOSHOZ
+              SJMP   MXJ77
+MXJ7          CJNE   A,#2,MXJ8          ; HA MAXJAT<>3, UGRAS
+MXJ77         MOV    DPTR,#JATSZIK      ; UJRA A TABLA CIME
+              MOV    DPL,#4             ; ELTOLAST SZAMITUNK (LSB=0)
+              MOV    A,#1               ; JATEKOS MEGJELOLESE
+              MOVX   @DPTR,A            ; BEJEGYZES 4. JATEKOSHOZ
+MXJ8          MOV    DPTR,#JATSZIK      ; UJRA A TABLA CIME
+              MOV    DPL,#3             ; ELTOLAST SZAMITUNK (LSB=0)
+              MOV    A,#1               ; JATEKOS MEGJELOLESE
+              MOVX   @DPTR,A            ; BEJEGYZES 3. JATEKOSHOZ
+MXJ5          SETB   EA                 ; IT ENG.
+              MOV    A,BREG
+              LCALL  CIMEK              ; A JATEK NEVENEK KIIRATASA
+              LCALL  PONTKIIR           ; KIJELZOKEZELES MEGHIVASA
+              LCALL  DARTKIJ
+           ;   MOV    A,MAXJAT
+           ;   LCALL  KIIRAS8
+              POP    B
+              POP    AREG
+              RET
+
+; ELLENORZI, HOGY A VALASZTOTT JATEKOSSZAMHOZ ELEGENDO-E A KREDIT
+;>VAN_KREDIT
+VAN_KREDIT    RET
+
+;*******************************************
+; STATISZTIKAI SZAMITASOK
+
+; TALALAT SZAMLALO NOVELESE
+; BEJOVO ADAT: JATAKT - AKT. JATEKOS
+; BEJOVO ADAT: CTPONT=0 => NINCS TALALAT,  CTPONT<>0 => VAN TALALAT
+; A TALALATOK SZAMA BINARIS FORMABAN VAN
+;>HIT_INC
+HIT_INC     MOV    A,CTPONT
+            JZ     HIT1           ; HA NINCS TALALAT, MAR LEPHETUNK IS KI
+            PUSH   DPH
+            PUSH   DPL
+            XRBYTE  T_PER,JATAKT
+            ADD    A,#1           ; TALALATSZAM NOVELES
+            MOVX   @DPTR,A        ; VISSZAMENTES
+            POP    DPL
+            POP    DPH
+HIT1        RET
+
+; A SZORZATHOZ MEG AZ OSZTO FELET ADJA KEREKITESHEZ
+; AZ AREG-BEN LEVO SZAM FELET KELL ADNI A B-A BYTE-PAROSBAN LEVO SZAMHOZ
+;>ADD_HALF
+ADD_HALF       PUSH   CREG
+               MOV    CREG,A            ; A-T MENTJUK A CREG-BE
+               MOV    A,AREG
+               CLR    A0                ; LEGALSO BIT LEGYEN 0
+               RR     A                 ; MEG AZ A FELET HOZZAADJUK
+               ADD    A,CREG            ; A-BAN AZ OSSZEG
+               MOV    CREG,A            ; IDOLEGES MENTES
+               MOV    A,B
+               ADDC   A,#0              ; 'B'-HEZ AZ ESETLEGES CARRY-T
+               MOV    B,A
+               MOV    A,CREG
+               POP    CREG
+               RET
+
+; A TALALATOK ALAPJAN TALALATI PONTOSSAGOT SZAMIT
+; BEJOVO ADAT: A - AZ OSSZES NYILAK SZAMA
+;>HIT_PERCENT
+HIT_PERCENT    PUSH     AREG
+               PUSH     BREG
+               PUSH     CREG
+               PUSH     DREG
+               PUSH     JNUM
+               PUSH     B
+               MOV    AREG,A          ; AREG-BEN LEGYEN AZ OSSZ. NYILSZAM
+               MOV    JNUM,#1
+HPC3           XRBYTE  T_PER,JNUM        ; A JATEKOS TALALATAINAK SZAMA
+               MOV    DREG,#0           ; A HANYADOS 0-ROL INDUL
+               JZ     HPC1              ; HA 0 A TALALATSZAM, AZ EREDMENY IS
+             ;  LCALL  KIIRAS8
+               MOV    B,#100            ; SZOROZZUK 100-AL
+               MUL    AB                ; B-A PAROSBAN A TALALATOK SZAMA
+               LCALL  ADD_HALF
+
+HPC2           CLR    C                 ; CARRY TORLES
+               SUBB   A,AREG            ; KIVONAS
+               MOV    CREG,A            ; ELMENTES
+               MOV    A,B               ; B-BOL KIVONJUK A CARRY-T
+               SUBB   A,#0              ; CSAK A CARRY-T
+               JC     HPC1              ; HA MOST IS VAN CARRY, VEGE
+               MOV    B,A
+               INC    DREG
+               MOV    A,CREG
+               SJMP   HPC2              ; ADDIG FOLYTATJUK, MIG KESZ NEM LESZ
+
+HPC1           XBYTEKI  T_PER,JNUM,DREG
+         ;     LCALL    KIIRAS8
+               LCALL    JATVALT
+               MOV      A,JNUM
+               CJNE     A,#1,HPC3         ; AMIG NEM ER KORBE, VISSZA
+               POP      B
+               POP      JNUM
+               POP      DREG
+               POP      CREG
+               POP      BREG
+               POP      AREG
+               RET
+
+; A PONTSZAMOK NYILANKENTI ATLAGOT SZAMIT
+; BEJOVO ADAT: A - AZ OSSZES NYILAK SZAMA
+;>PONT_P_DART
+PONT_P_DART    PUSH     AREG
+               PUSH     BREG
+               PUSH     CREG
+               PUSH     DREG
+               PUSH     JNUM
+               PUSH     B
+               MOV    AREG,A          ; AREG-BEN LEGYEN AZ OSSZ. NYILSZAM
+               MOV    JNUM,#1
+PDC3           MOV    JATAKT,JNUM
+               LCALL  PSZAMBE           ; A JATEKOS PONTSZAMAT BEHIVJUK
+               LCALL  CSAK_SZAM
+               LCALL  ST_CONV
+               LCALL  BCD2BINS          ; BINARISRA ALAKITJUK
+               LCALL  ADD_HALF
+               MOV    DREG,#0           ; A HANYADOS 0-ROL INDUL
+               PUSH   A                 ; MEGNEZZUK, NULLA-E
+               ORL    A,B               ; OSSZEFUZZUK A KET BYTE-OT
+               JNZ     PDC2A             ; HA 0 A TALALATSZAM, AZ EREDMENY IS
+               POP     A
+               SJMP    PDC1             ; HA NULLA, UGRAS
+
+PDC2A          POP    A
+PDC2           CLR    C                 ; CARRY TORLES
+               SUBB   A,AREG            ; KIVONAS
+               MOV    CREG,A            ; ELMENTES
+               MOV    A,B               ; B-BOL KIVONJUK A CARRY-T
+               SUBB   A,#0              ; CSAK A CARRY-T
+               JC     PDC1              ; HA MOST IS VAN CARRY, VEGE
+               MOV    B,A
+               INC    DREG
+               MOV    A,CREG
+               SJMP   PDC2              ; ADDIG FOLYTATJUK, MIG KESZ NEM LESZ
+
+PDC1           XBYTEKI  T_PPD,JNUM,DREG  ; DREG MAX. 60 LEHET
+            ;  MOV      A,DREG
+            ;  LCALL    KIIRAS8
+               LCALL    JATVALT
+               MOV      A,JNUM
+               CJNE     A,#1,PDC3         ; AMIG NEM ER KORBE, VISSZA
+               POP      B
+               POP      JNUM
+               POP      DREG
+               POP      CREG
+               POP      BREG
+               POP      AREG
+               RET
+
+; HA SZUKSEGES, A PONTSZAMOT KIVONJA 301/501/701/901-BOL
+;>ST_CONV
+ST_CONV        CBYTE  T_CONV,BREG            ; MEGNEZZUK, MILYEN JATEK
+               JZ     STC3                   ; HA NEM KELL KONVERTALNI, KILEP
+               MOV    SNUM,SZAZAS
+               MOV    NUM,TIZEGY             ; SZAMOK SNUM-NUM-BA
+               LCALL  CONV01
+               MOV    SZAZAS,SNUM
+               MOV    TIZEGY,NUM
+STC3           RET
+
+; BEOVO ADAT   : SZAZAS, TIZEGY
+; KIMENO ADAT  : UGYANAZ
+;>CSAK_SZAM
+CSAK_SZAM      MOV    A,SZAZAS          ; A SZAZAS ELSO JEGYET LEVESZI
+               ANL    A,#0FH            ;
+               CJNE   A,#0AH,CSA2       ; HA NEM 'A' A JEGY, UGRAS
+               MOV    SZAZAS,#0
+CSA2           MOV    A,TIZEGY
+               SWAP   A                 ; ALULRA AZ EGYESEKET
+               ANL    A,#0FH            ; CSAK AZ ALSO MARAD
+               CJNE   A,#0AH,CSA3       ; HA NEM 'A', UGRAS
+               MOV    A,#0FH
+               ANL    TIZEGY,A
+CSA3           RET
+
+; A PONTSZAMOK ALAPJAN KORONKENTI ATLAGOT SZAMIT
+; BEJOVO ADAT: A - A KOROK SZAMA - BINARIS FORMABAN
+;>PONT_P_ROUND
+PONT_P_ROUND   PUSH     AREG
+               PUSH     BREG
+               PUSH     CREG
+               PUSH     DREG
+               PUSH     JNUM
+               PUSH     B
+               MOV    AREG,A          ; AREG-BEN LEGYEN A KORSZAM
+               MOV    JNUM,#1
+PPRC3          MOV    JATAKT,JNUM
+               LCALL  PSZAMBE           ; A JATEKOS PONTSZAMAT BEHIVJUK
+               LCALL  CSAK_SZAM         ; A NULLATILTAST TORLI
+               LCALL  ST_CONV           ;
+               LCALL  BCD2BINS          ; BINARISRA ALAKITJUK
+               LCALL  ADD_HALF
+               MOV    DREG,#0           ; A HANYADOS 0-ROL INDUL
+               PUSH   A                 ; MEGNEZZUK, NULLA-E
+               ORL    A,B               ; OSSZEFUZZUK A KET BYTE-OT
+               JNZ     PPRC2A             ; HA 0 A TALALATSZAM, AZ EREDMENY IS
+               POP     A
+               SJMP    PPRC1             ; HA NULLA, UGRAS
+
+PPRC2A         POP    A
+PPRC2          CLR    C                 ; CARRY TORLES
+               SUBB   A,AREG            ; KIVONAS
+               MOV    CREG,A            ; ELMENTES
+               MOV    A,B               ; B-BOL KIVONJUK A CARRY-T
+               SUBB   A,#0              ; CSAK A CARRY-T
+               JC     PPRC1             ; HA MOST IS VAN CARRY, VEGE
+               MOV    B,A
+               INC    DREG
+               MOV    A,CREG
+               SJMP   PPRC2              ; ADDIG FOLYTATJUK, MIG KESZ NEM LESZ
+
+PPRC1          XBYTEKI  T_PPR,JNUM,DREG  ; DREG MAX. 180 LEHET
+               LCALL    JATVALT
+               MOV      A,JNUM
+               CJNE     A,#1,PPRC3         ; AMIG NEM ER KORBE, VISSZA
+               POP      B
+               POP      JNUM
+               POP      DREG
+               POP      CREG
+               POP      BREG
+               POP      AREG
+               RET
+
+
+; A TALALATI ARANYT ELOKESZITI KIJELZESRE.
+;>PER_DISP
+PER_DISP       MOV     DPTR,#T_PER      ; A SZAZALEKOT BIN. FORMABAN BEHOZZA
+               LCALL   ST_DISP
+               RET
+
+; A NYILATLAGOT ELOKESZITI KIJELZESRE.
+;>PPD_DISP
+PPD_DISP       MOV     DPTR,#T_PPD    ; A NYILATLAGOT BIN. FORMABAN BEHOZZA
+               LCALL   ST_DISP
+               RET
+
+; A KORATLAGOT KISZAMITJA ES ELOKESZITI KIJELZESRE.
+;>PPR_DISP
+PPR_DISP       MOV     DPTR,#T_PPR    ; A KORATLAGOT BIN. FORMABAN BEHOZZA
+               LCALL   ST_DISP
+               RET
+
+; STATISZTIKAI ADATOK KOZOS MEGJELENITO RUTINJA
+;>ST_DISP
+ST_DISP        PUSH    JNUM
+               MOV     JNUM,#1        ; ELSO JATEKOS
+PDR1           INC     DPTR
+               MOVX    A,@DPTR          ; A-BAN A KIJELZENDO ERTEK
+               LCALL   BIN2BCD          ; ATALAKITAS MEGHIVASA
+           ;    MOV     A,SNUM           ; SNUM VIZSGALATA
+           ;    ORL     SNUM,#A0H        ; SNUM ELOKESZITES
+               MOV     SZAZAS,SNUM
+               MOV     TIZEGY,NUM
+               MOV     JATAKT,JNUM
+               LCALL   PSZAMKI
+               LCALL   JATVALT
+               MOV     A,JNUM           ; MEGNEZZUK, KORBEERT-E
+               CJNE    A,#1,PDR1        ; AMIG NEM, VISSZA
+               POP     JNUM
+               RET
+
+;************************************************************************
+; MINDEN DOBAS UTAN MEGHIVJUK EZT A RUTINT.
+; HA CARRY=1- EL TER VISSZA, AKKOR ERVENYES A DOBAS,
+; HA CARRY=0, AKKOR ERVENYTELEN, NEM LEHET BESZAMITANI
+
+; ENNEL A RUTINNAL NINCS MIT NEZNI, MINDEN DOBAS JONAK SZAMIT
+
+G_HISCORE       PUSH    JNUM
+                MOV     JNUM,JATAKT    ; AZ AKT. JATEKOS SZAMA
+                LCALL	PONTSZOR       ; KISZAMITJA A
+                MOV     A,CTPONT
+                LCALL   PONTLAMP       ; A PONTOKNAK MEGFELELO LAMPAK
+                LCALL   HANGAD
+                LCALL   MENETPONT      ; EGY MENETEN BELULI PONTOK
+                LCALL   PONTHOZZA      ; PONTSZAM HOZZAADAS
+                LCALL   PONTKIIR
+                LCALL   DARTKIJ
+                LCALL   POLAMKI
+                POP     JNUM
+                LJMP    JUMPVEGE       ; VISSZATERHET
+
+;>KIIRAS
+KIIRAS          KIIR
+                PUSH    A
+                MOV     A,#99H
+                KIIR
+                POP     A
+                RET
+
+;>KIIRAS8
+KIIRAS8        ;  RET
+                KIIR
+                PUSH   A
+                MOV    A,#88H
+                KIIR
+                POP    A
+                RET
+
+G_LOSCORE       PUSH    JNUM
+                PUSH    AREG
+                MOV     JNUM,JATAKT    ; AZ AKT. JATEKOS SZAMA
+                MOV     A,CTPONT
+                JNZ     LSC1            ; HA NULLA, +50 BUNTETES
+                MOV     CTPONT,#50H
+                MOV     DREG,#1        ; EGGYEL KELL SZOROZNI AZ 50-ET
+LSC1            LCALL	PONTSZOR       ; KISZAMITJA A
+                MOV     A,AKTKOR       ; AKT. KORSZAMLALO
+                LCALL   BCD2BIN        ; BINARISRA ALAKITJUK
+                MOV     AREG,A         ; ELMENTJUK
+                MOV     A,CTPONT       ; KIVONJUK A PONTSZAMOT
+                LCALL   BCD2BIN
+                CLR     C
+                SUBB    A,AREG         ; AZ AKTUALIS KOR KIVONASA
+                JNC     LSC2           ; NEM VOLT KISEBB, UGORHAT
+                MOV     A,CTPONT       ;PONTSZAMOT UJRA BE
+                ADD     A,#20H         ; 20 BUNTETOPONT
+                DA      A
+                MOV     CTPONT,A       ; VISSZAMENTES
+                MOV     DREG,#1        ; EGGYEL KELL SZOROZNI
+LSC2            LCALL   PONTLAMP       ; A PONTOKNAK MEGFELELO LAMPAK
+                LCALL   HANGAD
+                LCALL   MENETPONT      ; EGY MENETEN BELULI PONTOK
+                LCALL   PONTHOZZA      ; PONTSZAM HOZZAADAS
+                LCALL   PONTKIIR
+                LCALL   DARTKIJ
+                LCALL   POLAMKI
+                POP     AREG
+                POP     JNUM
+                LJMP    JUMPVEGE       ; VISSZATERHET
+
+G_FLASH_GAME
+
+
+; O1-ES JATEKOK DOBAS-ERTEKELO RUTINJA
+;>G_301
+G_301         PUSH    JNUM
+              CLR     PLUSZ             ; CSOKKEN A PONTSZAM
+              MOV     JNUM,JATAKT       ; AZ AKT. JATEKOS SZAMA
+              JB      ELVESZNYIL,G3S2   ; HA ELVESZNYIL, UGRAS
+              JNB     DOUBIN,G3JODOB    ; HA NINCS DOUBIN, MINDEN DOBAS JO
+              XZBYTE  BELEPETT,JNUM     ; MEGNEZZUK, belEpett-e?
+              JNZ     G3JODOB           ; MAR BELEPETT, UGRAS
+              MOV     A,DREG            ; ATTOLTES OSSZEHASONLITASHOZ
+              CJNE    A,#2,G3S4         ; VAGY DUPLA LEGYEN, VAGY BULL
+              SJMP    G3S6              ; MEGVAN A DUPLA, ERVENYES
+G3S4          CJNE    A,#8,G3S2         ; G3S2: NEM VOLT DUPLA, NEM LEPHET BE
+G3S6          XZBYTEKI  BELEPETT,JNUM,#1
+              SJMP    G3JODOB           ; BELEPES NAPLOZASA
+G3S2          MOV     CTPONT,#0         ; PONTSZAM NULLAZOSM, NEM LEPETT BE
+              MOV     DREG,#0           ; SZORZOSZAM IS NULLAZVA
+
+G3JODOB       LCALL   PONTSZOR          ; CTPONT:=CTPONT*DREG
+              LCALL   PONTLAMP          ; A PONTOKNAK MEGFELELO LAMPAK
+              LCALL   KIVON             ; PONTSZAM KIVONAS
+              MOV     A,BREG
+              CJNE    A,#GAME_301PARC,G3NOPAR
+              LCALL   NULLPARC
+G3NOPAR       JB      TULCSOR,G3TULCSX  ; TULCSORDULASNAL UGRAS
+              JNB     NULLALETT,G3KISZ  ; HA NEM NULLALETT, BIZTOS NEM GYOZHET
+              LCALL   GYOZ01            ; NULLALETT, MEGNEZI, GYOZHET-E
+              JB      GYOZOTT,G3GYOZ    ; HA GYOZOTT, UGRAS
+              JNB     GYOZEQ,G3TULCS    ; NEM EQUAL VAN, VISSZA A KOR ELOTTI
+              SETB    ELVESZNYIL
+              SJMP    G3NORM
+
+G3TULCSX      SETB    TOOMUCH
+G3TULCS       SETB    ELVESZNYIL        ; EL KELL VENNI A TOBBI NYILAT
+              XBYTE   OLD_PT,#0         ; REGI PONTSZAM BEOLVASASA
+              MOV     TIZEGY,A          ; KOR ELOTTI PONTSZAM VISSZAALLITAS
+              XBYTE   OLD_PS,#0
+              MOV     SZAZAS,A
+              LCALL   PSZAMKI           ; AZ AKT. JATEKOSNAK BEIRJUK
+
+G3NORM        LCALL   MENETPONT         ; EGY MENETEN BELULI PONTOK
+              LCALL   HANGAD            ; A DOBASHOZ TARTOZO HANGEFFEKT
+G3S10         LCALL   PONTKIIR          ; KIIRATAS
+              LCALL   DARTKIJ           ; MEGJELENITES
+              LCALL   POLAMKI
+              POP     JNUM
+              LJMP    JUMPVEGE
+
+G3KISZ        JB      ELVESZNYIL,G3NORM ; ELVESZNYILNAL NINCS SEGITSEG
+              MOV     A,#3              ; KIMENESI SEGITSEG ADASA
+              CJNE    A,NRDART,G3S11    ; UTOLSO NYILLAL NEM IRATJUK KI
+              SJMP    G3NORM            ; HA UTOLSO NYIL VOLT, NEM IRATUNK
+G3S11         LCALL   KISZALL           ; MEGNEZI, KI LEHET-E MENNI?
+              JZ      G3NORM            ; HA NEM, UGRAS
+              LCALL   HANGAD
+              LCALL   G_DOBANDO         ; HA IGEN, KIIRATJUK
+              SJMP    G3S10
+
+G3GYOZ        LCALL   GYOZOTT01         ; GYOZTEST MEGJELOLI
+              SETB    VANGYOZ
+              LCALL   GYOZTES           ; UGRAS A GYOZELEMBE
+              POP     JNUM
+              POP     DPL
+              POP     DPL
+              POP     JNUM
+              POP     DREG
+              POP     DPL
+              POP     DPH                ; STACK NOVELES
+              RET
+
+
+JATEK     LJMP   G_HISCORE         ; 1.  HI SCORE
+          NOP
+          LJMP   G_LOSCORE         ; 2.  LOW SCORE
+          NOP
+          LJMP   G_301             ; 3.  301
+          NOP
+          LJMP   G_301             ; 4.  501
+          NOP
+          LJMP   G_301             ; 5.  701
+          NOP
+          LJMP   G_301             ; 6.  901
+          NOP
+          LJMP   G_SHANGHAI        ; 7.  SHANGHAI
+          NOP
+          LJMP   G_HISCORE         ; 8.  PUB GAME
+          NOP
+          LJMP   G_CRICKET21       ; 9.  CRICKET21
+          NOP
+          LJMP   G_CRICKET         ; 10. CRICKET
+          NOP
+          LJMP   G_CRICKETTH       ; 11. CRICKET THROAT
+          NOP
+          LJMP   G_FIVES           ; 12. FIVES
+          NOP
+          LJMP   G_BLA_CRICKET     ; 13. BLA_CRICKET
+          NOP
+          LJMP   G_HALVES          ; 14. HALVES
+          NOP
+          LJMP   G_ABS_CRICKET     ; 15. ABS_CRICKET
+          NOP
+          LJMP   G_TRENING         ; 16. TRENING DOWN (JELZOBIT: TR_DOWN=1)
+          NOP
+          LJMP   G_301             ; 17. 301 PARCHESSI
+          NOP
+          LJMP   G_HARD_SCORE      ; 18. HARD_SCORE
+          NOP
+          LJMP   G_HISCORE         ; 19. FLASH_GAME
+          NOP
+          LJMP   G_PAIR_CRIC       ; 20. PAIR_CRIC
+          NOP
+          LJMP   G_REDMASTER      ; 21. REDMASTER
+          NOP
+          LJMP   G_BULLMASTER      ; 22. BULLMASTER
+          NOP
+          LJMP   G_TRENING         ; 23. TRENING UP   (JELZOBIT: TR_DOWN=0)
+          NOP
+
+
+WINRUTIN    LJMP   WIN_HISCORE         ; 1.  HI SCORE
+            NOP
+            LJMP   WIN_LOSCORE         ; 2.  LOW SCORE
+            NOP
+            LJMP   WIN_301             ; 3.  301
+            NOP
+            LJMP   WIN_301             ; 4.  501
+            NOP
+            LJMP   WIN_301             ; 5.  701
+            NOP
+            LJMP   WIN_301             ; 6.  901
+            NOP
+            LJMP   WIN_SHANGHAI        ; 7.  SHANGHAI
+            NOP
+            LJMP   WIN_HISCORE         ; 8.  PUB GAME
+            NOP
+            LJMP   WIN_CRICKET21       ; 9.  CRICKET21
+            NOP
+            LJMP   WIN_CRICKET         ; 10. CRICKET
+            NOP
+            LJMP   WIN_CRICKETTH       ; 11. CRICKET THROAT
+            NOP
+            LJMP   WIN_FIVES           ; 12. FIVES
+            NOP
+            LJMP   WIN_BLO_CRICKET     ; 13. BLO_CRICKET
+            NOP
+            LJMP   WIN_HALVES          ; 14. HALVES
+            NOP
+            LJMP   WIN_ABS_CRICKET     ; 15. ABS_CRICKET
+            NOP
+            LJMP   WIN_TRENING         ; 16. TRENING
+            NOP
+            LJMP   WIN_301PARC         ; 17. 301 PARCHESSI
+            NOP
+            LJMP   WIN_HARD_SCORE      ; 18. HARD_SCORE
+            NOP
+            LJMP   WIN_FLASH_GAME      ; 19. FLASH_GAME
+            NOP
+            LJMP   WIN_PAIR_CRIC       ; 20. PAIR_CRIC
+            NOP
+            LJMP   WIN_REDMASTER      ; 21. REDMASTER
+            NOP
+            LJMP   WIN_BULLMASTER      ; 22. BULLMASTER
+            NOP
+
+
+WIN_HISCORE    LCALL    WINKERES      ; 1.  HI SCORE
+               JMP JUMPWINVEGE
+
+WIN_LOSCORE    LCALL    WINKERES      ; 2.  LOW SCORE
+               JMP JUMPWINVEGE
+
+WIN_301         JB      TEAM,WN3
+                LCALL   WINKERES      ; 3.  301
+                JMP     JUMPWINVEGE
+WN3             LCALL   TEAMWINKERES
+                JMP     JUMPWINVEGE
+
+
+; EQUAL ESETEN EGY MENET UTAN, HA VOLT GYOZTES, ITT VIZSGALJA MEG
+;>EQUWINNER
+EQUWINNER       CLR      GYOZOTT       ; GYOZOTT JELZO BIT TORLESE
+                MOV      JNUM,#1       ; MINDEN JATEKOSRA MEGNEZZUK
+EQW2            XRBYTE   GNYIL,JNUM    ; JNUM NYILAINAK A SZAMA
+                CJNE     A,#1,EQW1     ; HA <>1, MEG NEM NYERT
+                SETB     GYOZOTT
+                MOV      JATAKT,JNUM
+                LCALL    GYOZOTT01     ; GYOZTES MEGJELOLESE
+EQW1            LCALL   JATVALT
+                MOV     A,JNUM
+                CJNE    A,#1,EQW2      ; HA MEG NEM ERT KORBE, VISSZA
+                JB      GYOZOTT,EQW8   ; MEGVAN A GYOZTES, KILEPES
+; KETTO NYILLAL KIMENES VIZSGALAT
+                MOV      JNUM,#1       ; MINDEN JATEKOSRA MEGNEZZUK
+EQW4            XRBYTE    GNYIL,JNUM    ; JNUM NYILAINAK A SZAMA
+                CJNE     A,#2,EQW3     ; HA <>1, MEG NEM NYERT
+                SETB     GYOZOTT
+                MOV      JATAKT,JNUM
+                LCALL    GYOZOTT01     ; GYOZTES MEGJELOLESE
+EQW3            LCALL   JATVALT
+                MOV     A,JNUM
+                CJNE    A,#1,EQW4      ; HA MEG NEM ERT KORBE, VISSZA
+                JB      GYOZOTT,EQW8   ; MEGVAN A GYOZTES, KILEPES
+; HAROM NYILLAL KIMENES VIZSGALAT
+                MOV      JNUM,#1       ; MINDEN JATEKOSRA MEGNEZZUK
+EQW6            XRBYTE    GNYIL,JNUM    ; JNUM NYILAINAK A SZAMA
+                CJNE     A,#3,EQW5     ; HA <>1, MEG NEM NYERT
+                SETB     GYOZOTT
+                MOV      JATAKT,JNUM
+                LCALL    GYOZOTT01     ; GYOZTES MEGJELOLESE
+EQW5            LCALL   JATVALT
+                MOV     A,JNUM
+                CJNE    A,#1,EQW6      ; HA MEG NEM ERT KORBE, VISSZA
+EQW8            RET
+
+
+; MEGVIZSGALJA, HOGY A JATEKOSNAK HANY LED EG A 21-BOL
+; BEJOVO ADAT : JATAKT - KERESENDO JATEKOS
+; KIMENO ADAT :  A     - BAN A LEDEK SZAMA
+HANYLEDEG     CLR     A
+              MOV     AREG,#0
+HLD2          PUSH    A
+              LCALL   CRPONTBE          ; PONTSZAM BEOLVASAS
+              XCH     A,AREG
+              ADD     A,B               ; BEJOVO LEDSZAM HOZZAADASA
+              DA      A                 ; BCD-BEN KELL A SZAM
+              XCH     A,AREG            ; ELTAROLAS AREG-BEN
+              POP     A                 ;
+              INC     A                 ; CIKLUSSZAMLALO NOVELES
+              CJNE    A,#7,HLD2
+              MOV     A,AREG            ; KIMENO ADAT A-BAN
+              RET
+
+; MINDEN JATEKOSRA MEGHATAROZZA, HOGY HANY LEDJE EG
+;>LEDWINKERES
+LEDWINKERES   LCALL     PONT1_INIT      ; PONTSZAM TERULET INICIALIZALAS
+              MOV       JNUM,#1         ; MINDEN JATEKOS LEDSZAMA A
+LWK1          MOV       JATAKT,JNUM     ;    PONTSZAM TERULETRE KERUL
+              LCALL     HANYLEDEG       ; LEDSZAM MEGHATAROZAS
+              MOV       CTPONT,A        ; ATTOLTES OSSZEADASHOZ
+              LCALL     HOZZAAD         ; PONTSZAM TER.-RE TOLTES
+              LCALL     JATVALT
+              MOV       A,JNUM
+              CJNE      A,#1,LWK1       ; HA MEG NEM ERT KORBE, VISSZA
+              CLR       LOW_WIN         ; NAGYOBB SZAM NYER
+              LCALL     WINKERES        ; PONTSZAM ALAPJA GYOZTES KERESES
+              RET
+
+;>LEDTEAMWINKERES
+LEDTEAMWINKERES   LCALL     LEDWINKERES     ; PONTSZAMOK HELYETT LEDSZAMOK
+                  LCALL     CSAP_PONT       ; CSAPAT PONTSZAM SZAMITAS
+                  LCALL     TEAMWINKERES
+                  RET
+
+
+WIN_SHANGHAI   LCALL    WINKERES      ; 7.  SHANGHAI
+               JMP JUMPWINVEGE
+
+
+WIN_CRICKET21   LJMP    WIN_CRICKET
+                JMP     JUMPWINVEGE
+
+
+WIN_CRICKET     JNB     NOSCORE,WNC1           ; HA NEM NOSCORE, UGRIK
+                JB      TEAM,WNC21             ; NO-SCORE KRIKETT
+                LCALL   LEDWINKERES            ; CSAK LED-SZAM ALAPJAN KERES
+                JMP     JUMPWINVEGE
+WNC21           LCALL   LEDTEAMWINKERES        ; CSAPAT LED-SZAMOT SZAMIT
+                JMP     JUMPWINVEGE
+WNC1            JNB     CUTTH,WNC2           ; HA NEM CUT-THROAT, UGRAS
+                SETB    LOW_WIN
+WNC2            JB      TEAM,WNC1A
+                LCALL   WINKERES
+                JMP     JUMPWINVEGE
+WNC1A           LCALL   TEAMWINKERES
+                JMP     JUMPWINVEGE
+
+WIN_CRICKETTH
+                JMP     WIN_CRICKET
+                LJMP    JUMPWINVEGE
+
+
+WIN_FIVES      LCALL    WINKERES      ; 12. FIVES
+               JMP JUMPWINVEGE
+
+WIN_BLO_CRICKET     LCALL    WIN_CRICKET     ; 13. BLO_CRICKET
+               JMP JUMPWINVEGE
+
+WIN_HALVES     LCALL    WINKERES           ; 14. HALVES
+               JMP JUMPWINVEGE
+
+WIN_ABS_CRICKET      LCALL    WIN_CRICKET    ; 15. ABS_CRICKET
+               JMP JUMPWINVEGE
+
+WIN_TRENING LCALL    WINKERES              ; 16. TRENING
+               JMP JUMPWINVEGE
+
+WIN_301PARC     JB      TEAM,WN5
+                LCALL   WINKERES      ; 17. PARCHESSI
+                JMP     JUMPWINVEGE
+WN5             LCALL   TEAMWINKERES
+                JMP     JUMPWINVEGE
+
+                LCALL    WINKERES      ; 17. 301 PARCHESSI
+               JMP JUMPWINVEGE
+
+WIN_HARD_SCORE   LCALL    WINKERES        ; 18. HARD_SCORE
+               JMP JUMPWINVEGE
+
+WIN_FLASH_GAME   LCALL    WINKERES        ; 19. FLASH_GAME
+               JMP JUMPWINVEGE
+
+WIN_PAIR_CRIC    LCALL    WIN_CRICKET         ; 20. PAIR_CRIC
+               JMP JUMPWINVEGE
+
+WIN_REDMASTER     LCALL    WINKERES      ; 21. REDMASTER
+               JMP JUMPWINVEGE
+
+WIN_BULLMASTER  LCALL    WINKERES         ; 22. BULLMASTER
+                JMP JUMPWINVEGE
+
+G_SHANGHAI    PUSH    JNUM
+              MOV     JNUM,JATAKT         ; AZ AKT. JATEKOS SZAMA
+              MOV     DPTR,#BELEPETT      ;   BELEPETT-E A JATEKOS ?
+              MOV     DPL,JNUM
+              MOVX    A,@DPTR            ; BEHOZZUK A DOBANDO SZAMOT
+              CJNE    A,#21H,SHA21        ; HA NEM BULLT KELL DOBNI, UGRIK
+              MOV     A,CTPONT
+              CJNE    A,#25H,SHA22        ; HA NEM KISBULL, UGRIK
+              SJMP    SHA24               ; ELFOGADVA
+SHA22         CJNE    A,#50H,SHA2         ; HA NEM NAGYBULL, UGRIK
+              SJMP    SHA24
+SHA21         CJNE    A,CTPONT,SHA2      ; NEM ERVENYES DOBAS
+SHA24         ADD     A,#1
+              DA      A                  ; DOBANDO SZAM NOVELESE
+              MOVX    @DPTR,A            ; ELMENTVE
+              SJMP    SHA3
+SHA2          MOV     CTPONT,#0         ; PONTSZAM NULLAZASA
+              MOV     DREG,#0
+SHA3          LCALL   SHAFILL           ; S-D-T VIZSGALAT
+              LCALL	PONTSZOR
+              LCALL     HIT_INC
+              LCALL     PONTLAMP            ; A PONTOKNAK MEGFELELO LAMPAK
+              LCALL     HANGAD
+              LCALL     SHADOBANDO          ; EGY MENETEN BELULI PONTOK
+
+              LCALL     HOZZAAD             ; PONTSZAM HOZZAADAS
+              LCALL   PONTKIIR
+              LCALL   DARTKIJ
+              LCALL   POLAMKI
+              POP       JNUM                ; REGISZTEREK VISSZAMENTESE
+              LJMP      JUMPVEGE            ; VISSZATERHET
+
+G_501             RET
+
+G_701             RET
+
+G_901             RET
+
+G_PUB             RET
+
+G_CRICKET21       LJMP  G_CRICKET       ; CRICKET SZABALYOK SZERINT
+
+; KRIKETT JATEKBAN LAMPA RUTIN
+;>CRICLAMP
+CRICLAMP          PUSH  CTPONT
+                  PUSH  A
+                  LCALL PONTLAMP
+CRLA3             POP   A
+                  POP   CTPONT
+                  RET
+
+;******************************************
+; CRICKET JATEKOK
+;>G_CRICKET
+G_CRICKET        PUSH  JNUM
+                 CLR   HASZNOS         ; ALAPHELYZETBEN NEM HASZNOS A DOBAS
+                 MOV   B,#15           ; MEGNEZZUK, KISEBB-E 15-NEL?
+                 CLR   C
+                 MOV   A,CTPONT        ; A-BA A DOBOTT PONTSZAM
+                 LCALL BCD2BIN         ; BINARISRA ALAKITJUK
+                 SUBB  A,B             ; KIVONJUK
+                 JNC   CRK4            ; HA VAN CARRY, NEM JO A DOBAS
+                 MOV   CTPONT,#0       ; NEM JO SZAM, NULLAZZUK
+                 MOV   DREG,#0
+                 LCALL PONTLAMP        ; NOSCORE DOBAS
+              ;  LCALL HANGAD          ; HANGOT AZ UGRAS UTAN ADUNK
+                 SJMP  CRK1            ; UGRAS A VEGERE
+CRK4             PUSH    A
+                 LCALL   CRICLAMP
+                 XBYTEKI  OLD_CR,#0,DREG   ; ELTAROLJUK A DREG-ET
+                 POP     A
+                 CJNE  A,#10,CRK2      ; HA 25-OT DOBTUNK, MODOSIT
+                 MOV   A,#6            ; BULL HELYETT
+                 MOV   DREG,#1         ; A SZORZO MOST 1 LESZ
+                 SJMP  CRK3
+CRK2             CJNE  A,#35,CRK3
+                 MOV   DREG,#2          ; A SZORZO MOST 2 LESZ
+                 MOV   A,#6             ; 50 PONTOS DOBAS HELYETT
+                 MOV   CTPONT,#25H      ; MODOSITANI KELL 25-RE
+CRK3             MOV   AREG,A           ; AREG-BE A SZAM SZAMAT
+              ;  MOV   A,AREG
+                 MOV   JNUM,JATAKT
+                 LCALL CRPONTBE         ; BEHOZZUK AZ EDDIGI PONTSZAMOT B-BE
+                 LCALL CRMARAD          ; MEGNEZZUK A MARADEKOT 3 FOLOTT
+                 LCALL PONTSZOR
+                 MOV   A,AREG           ; TAROLASHOZ ADATOK
+                 LCALL CRPONTKI         ; UJ PONTSZAM TAROLAS
+                 MOV   B,AREG
+                 JB    NOSCORE,CRK1     ; NO SCORE CRICKET, UGRIK
+                 LCALL ZARTVIZS         ; MEGNEZI, LE VAN-E ZARVA
+                 JB    LEZARVA,CRK1     ; HA LE VAN A SZAM ZARVA, NEM ADJA
+                 SETB  HASZNOS          ; HASZNOS, MERT PONTOT HOZ
+                 LCALL   MENETPONT      ; EGY MENETEN BELULI PONTOK
+                 JB      CUTTH,CRK5     ; CUT-THROAT, UGRIK
+                 LCALL   HOZZAAD        ; PONTSZAM HOZZAADAS
+CRK1             LCALL   HANGAD         ; A DOBASNAK MEGFELELO HANG ADASA
+                 MOV     CTPONT,#0
+                 JNB     HASZNOS,CRKK1
+                 MOV     CTPONT,#1
+CRKK1            LCALL   HIT_INC
+                 LCALL   PONTKIIR
+                 LCALL   DARTKIJ
+                 LCALL   POLAMKI
+
+                 LCALL   CR_VANGYOZ     ; GYOZOTT VALAKI ?
+                 JNB     VANGYOZ,CRK11  ; NINCS
+                 LCALL   GYOZTES
+                 SJMP    CR_IDE
+
+                 LCALL   CRKIGYOZ       ; MEGNEZI, HOGY GYOZOTT-E VALAKI?
+                 JNB     CRGYOZ,CRK11   ; HA NEM GYOZOTT, UGRIK
+             ;    LCALL   CRGYOZOTT      ; GYOZTEST MEGJELOLI
+                 SETB    VANGYOZ
+                 LCALL   GYOZTES        ; UGRAS A GYOZELEMBE
+CR_IDE           POP     JNUM
+                 POP     DPL
+                 POP     DPL
+                 POP     JNUM
+                 POP     DREG
+                 POP     DPL
+                 POP     DPH                ; STACK NOVELES
+                 RET
+
+CRK11            CLR    GYOZOTT
+                 POP     JNUM           ; REGISZTEREK VISSZAMENTESE
+                 LJMP    JUMPVEGE       ; VISSZATERHET
+
+CRK5             PUSH    JNUM
+                 MOV     JNUM,#1        ; MINDEN JATEKOST VEGIGNEZUNK
+                 MOV     A,JNUM         ; CIKLUS ELEJE
+CRK7             DEC     A
+                 RL      A
+                 RL      A
+                 RL      A              ; NYOLCCAL   SZOROZZUK
+                 MOV     DPTR,#CRZART   ; TABLA KEZDOCIM BETOLTES
+                 ADD     A,DPL
+                 ADD     A,B            ; ELTOLAS KISZAMITVA
+                 MOV     DPL,A
+                 MOVX    A,@DPTR        ; ADAT BEOLVASAS
+                 JNZ     CRK6           ; NINCS LEZARVA, UGRIK
+                 LCALL   HOZZAAD        ; HA NINCS LEZARVA, HOZZAADJA
+CRK6             LCALL   JATVALT        ; VALT A KOV. JATEKOSRA.
+                 MOV     A,JNUM         ; MEGNEZZUK, KORBEERT-E?
+                 CJNE    A,#1,CRK7      ; MEG VAN JATEKOS, UGRIK
+                 POP     JNUM
+                 SJMP    CRK1           ; VISSZA A KIIRASHOZ
+
+
+BLA_SZAM        DB  0, 20H, 19H, 18H, 17H, 16H, 15H, 25H
+
+CRIC_SZAM   DB  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+            DB  0,  0,  0,  0,  0,  1,  2,  3,  4,  5,  0
+
+; A CTPONT-BAN LEVO (15-BULL) PONTOT KONVERTALJA 0-6 TARTOMANYBA
+; A TARTOMANYON KIVUL ESO PONTOKRA A CARRY-T 1-BE ALLITJA
+; BEJOVO ADAT: CTPONT - PONTSZAM BCD KODBAN
+; KIMENO ADAT: A      - 0-6 TARTOMANY
+; KIMENO ADAT: CARRY  = 1, HA ALULCSORDULAS VOLT
+;>CPONT2TABL
+CPONT2TABL       MOV    A,CTPONT         ; ATTOLTES A-BA
+                 CLR    C                ; CARRY TORLESE KESOBBI KIVONASHOZ
+                 CJNE   A,#25H,C2T1      ; HA NEM BULL25, UGRIK
+                 MOV    A,#6             ; HA BULL, B=6
+                 MOV    DREG,#1          ; 1-ES A SZORZO
+                 SJMP   C2T_END          ; KILEPHET
+C2T1             CJNE   A,#50H,C2T2      ; HA NEM BULL50, UGRIK
+                 MOV    A,#6
+                 MOV    DREG,#2          ; 2X25H -KENT LESZ ERTEKELVE
+                 MOV    CTPONT,#25H      ; CTPONT IS VALTOZIK
+                 SJMP   C2T_END
+C2T2             LCALL  BCD2BIN          ; PONTSZAM BINARISBA
+                 CLR    C
+                 SUBB   A,#15            ; A PONTSZAMBOL 15 KIVONAS
+C2T_END          RET
+
+; JATAKT KIVETELEVEL MINDENKINEK FELIRJA A DOBAS ERTEKET, HA NINCS LEZARVA
+; BEJOVO ADAT: JNUM   - AKT. JATEKOS SZAMA
+;              CTPONT - DOBAS ERTEKE (FELIRANDO PONTSZAM)
+;              B      - ERRE A SZAMRA VIZSGAL ZARTSAGOT
+; KIMENO ADAT: CR_BUNT=1, HA IRTUNK VALAKINEK, CR_BUNT=0, HA NEM IRTUNK
+;>CR_BUNTET
+CR_BUNTET         PUSH    JNUM            ; HASZNALT REGISZTEREK MENTESE
+                  CLR     CR_BUNT         ; DEFAULT: NEM IRUNK SENKINEK
+                  MOV     A,MAXJAT        ; MEGNEZZUK, HANYAN JATSZANAK
+                  CJNE    A,#1,CRB1       ; HA NEM EGY JATEKOS VAN, UGRIK
+                  SJMP    CRB_END         ; NEM TUDOTT IRNI, KILEP
+CRB1              MOV     JNUM,#1         ; JATEKOS SZAMLALO
+CRB4              LCALL   JAT_ZART        ; LE VAN ZARVA A JATEKOS ?
+                  JNZ     CRB2            ; LEZARVA, UGRIK
+                  MOV     A,JNUM          ; AKT. JATEKOS BETOLTES
+                  CJNE    A,JATAKT,CRB3   ; HA NEM AZ AKT. JATEKOS, UGRIK
+                  SJMP    CRB2            ; MAGUNKNAK NEM IRUNK
+CRB3              LCALL   PONTHOZZA       ; JNUM-HOZ A PONTOT HOZZAADJUK
+                  SETB    CR_BUNT         ; MEGJEGYZI, HOGY VOLT BUNTETES
+                  SETB    HASZNOS         ; HASZNOS VOLT A DOBAS
+CRB2              LCALL   JATVALT          ; JATEKOS SZAMLALO NOVELES
+                  MOV     A,JNUM
+                  CJNE    A,#1,CRB4        ; HA MEG NEM A MAX., UGRIK
+CRB_END           POP     JNUM
+                  RET
+;>G_BLA
+G_BLA_CRICKET    PUSH  JNUM            ;
+                 MOV   JNUM,JATAKT     ; JNUM-BAN IS LEGYEN
+                 CLR   HASZNOS         ; ALAPHELYZETBEN NEM HASZNOS A DOBAS
+                 MOV   DPTR,#BLA_DOB   ; BEOLVASSA A DOBADO SORSZAMOT
+                 MOVX  A,@DPTR
+                 MOV   DPTR,#BLA_SZAM
+                 MOVC  A,@A+DPTR       ; SORSZAM ALAPJAN A SZAM
+                 CJNE  A,#25H,BLA1     ; HA NEM BULL KELL, UGRIK
+                 MOV   A,DREG          ; DREG-ET MEGNEZZUK
+                 ANL   A,#00001100B    ; CSAK A BULL BITEK MARADNAK
+                 JZ    BLA2            ; NEM BULLT DOBTAK, NEM HASZNOS
+                 MOV   A,#25H          ; A-T VISSZAALLITJUK
+                 SJMP  BLA1C           ; BULLT DOBTAK, HASZNOS
+
+BLA1             CLR   C               ; CARRY TORLES
+                 SUBB  A,CTPONT        ; KIVONJUK
+                 JNZ   BLA2            ; HA NEM NULLA, NEM HASZNOS
+BLA1C            PUSH    A
+                 LCALL   CRICLAMP
+                 XBYTEKI  OLD_CR,#0,DREG   ; ELTAROLJUK A DREG-ET
+                 POP     A                 ; HANG ADASHOZ
+                 LCALL CPONT2TABL      ; CRICKET TABLAZATHOZ KONVERZIO
+                 MOV   R1,A            ; R1-BEN A 0-6 DOBAS-TARTOMANY
+                 MOV   B,A             ; A JAT_ZART-NAK B LESZ A BEMENETE
+                 LCALL JAT_ZART        ; LE VAGYOK ZARVA ?
+         ;       LCALL P_DISP
+                 JNZ   BLA4            ; LE VAGYOK, UGRAS
+                 MOV   A,B             ; A-BAN LEGYEN
+                 LCALL CRPONTBE        ; LED-SZAM BEOLVASAS (B-BEN LESZ)
+                 LCALL CRMARAD         ; KISZAMITJA A MARADEKOT
+                 MOV   A,R1            ;
+                 LCALL CRPONTKI        ; LED SZAM KIIRAS
+                 MOV   B,R1
+                 LCALL JAT_ZART        ; LEZARTAM KOZBEN ?
+                 JZ    BLA5            ; NEM ZARTAM LE, NEM BUNTETEK
+
+BLA4             LCALL PONTSZOR        ; CTPONT-BA A DOBAS ERTEKE KERULJON
+                 LCALL CR_BUNTET       ; FELIRAS A TOBBIEKNEK
+                 JB    CR_BUNT,BLA5    ; HA VOLT BUNTETES, MARAD A DOBANDO
+                 MOV   DPTR,#BLA_DOB   ; BEOLVASSA A DOBADO SORSZAMOT
+                 MOVX  A,@DPTR
+                 INC   A               ; NOVELJUK S DOBANDO SZAMOT
+                 MOVX  @DPTR,A         ; ELMENTJUK
+                 SJMP    BLA5          ; UGRAS
+
+; NEM HASZNOS DOBAS, FELIRAS MAGAMNAK
+BLA2             LCALL PONTSZOR        ; KISZAMITJUK A DOBOTT PONTOT
+                 LCALL PONTHOZZA       ; PONTSZAM HOZZAADAS
+                 LCALL NYIL_PONT       ; A DOBOTT NYIL ERTEKET KIJELEZZUK
+                 MOV   CTPONT,#0       ; NEM HASZNOS A SZAM, NULLAZZUK
+                 MOV   DREG,#0
+BLA5             LCALL   BLA_DOBANDO   ; EGY MENETEN BELULI PONTOK
+                 LCALL   HIT_INC
+                 LCALL   PONTKIIR
+                 LCALL   DARTKIJ       ; IRJA A KIJELZOT
+                 LCALL   PONTLAMP      ; A PONTOKNAK MEGFELELO LAMPAK
+                 LCALL   HANGAD        ; DOBASNAK MEGFELELO EFFEKTUS
+                 LCALL   POLAMKI       ; PONTSZAM LAMPA OLTASA
+
+                 LCALL   CR_VANGYOZ     ; GYOZOTT VALAKI ?
+                 JNB     VANGYOZ,BLK11  ; NINCS
+                 LCALL   GYOZTES
+                 SJMP    CR_BLK
+
+             ;   LCALL   CRKIGYOZ       ; MEGNEZI, HOGY GYOZOTT-E VALAKI?
+             ;   JNB     CRGYOZ,CRK11   ; HA NEM GYOZOTT, UGRIK
+             ;   LCALL   CRGYOZOTT      ; GYOZTEST MEGJELOLI
+             ;   SETB    VANGYOZ
+             ;   LCALL   GYOZTES        ; UGRAS A GYOZELEMBE
+CR_BLK           POP     JNUM
+                 POP     DPL
+                 POP     DPL
+                 POP     JNUM
+                 POP     DREG
+                 POP     DPL
+                 POP     DPH                ; STACK NOVELES
+                 RET
+
+BLK11            CLR    GYOZOTT
+                 POP     JNUM           ; REGISZTEREK VISSZAMENTESE
+                 LJMP    JUMPVEGE       ; VISSZATERHET
+
+
+G_CRICKETTH     LJMP    G_CRICKET      ; CRICKET SZABALYOK SZERINT
+
+G_FIVES         PUSH    JNUM
+                MOV     JNUM,JATAKT    ; AZ AKT. JATEKOS SZAMA
+                LCALL	PONTSZOR       ; KISZAMITJA A
+                MOV     A,CTPONT
+                JNZ     FVS2           ; HA NEM NULLA, UGRIK
+                SETB    NULLNYIL       ; JELZI, HOGY VOLT EGY NULLANYIL IS
+FVS2            LCALL   PONTLAMP       ; A PONTOKNAK MEGFELELO LAMPAK
+                LCALL   MENETPONT      ; EGY MENETEN BELULI PONTOK
+                MOV     A,NRDART
+                CJNE    A,#3,FVS1      ; HA NEM AZ UTOLSO NYIL VOLT, UGRIK
+                PUSH    JATAKT         ; AZ UTOLSO NYIL, SZAMOLUNK
+                MOV     JATAKT,#9
+                LCALL   PSZAMBE        ; A MENET PONTSZAMA BEOLV.
+                POP     JATAKT
+                LCALL   BCD2BINS       ; BINARISSA ALAKITAS, A-BAN LESZ
+                LCALL   DIVBY5         ; OSZTAS OTTEL
+                MOV     A,CTPONT
+                JNZ     FVS4           ; OSZTHATO OTTEL
+                MOV     A,#H_FIVENEM
+                LCALL   H_EFFEKT
+                MOV     B,#B_OHNO
+                LCALL   B_PLAYER
+                SJMP    FVS5
+FVS4            MOV     A,#H_FIVEJO       ; NEM OSZTHATO OTTEL
+                LCALL   H_EFFEKT
+                MOV     B,#B_YEE
+                LCALL   B_PLAYER
+FVS5            LCALL   HOZZAAD        ; PONTSZAM HOZZAADAS
+                JNB     NULLNYIL,FVS3  ; HA NEM VOLT ROSSZ NYIL, UGRIK
+                MOV     CTPONT,AKTKOR  ; BUNTETOPONTOK LEVONASA
+                LCALL   KIVON
+                JNB     TULCSOR,FVS3
+                MOV     SZAZAS,#0      ; HA TULCSORDULAS VAN, NULLAZ
+                MOV     TIZEGY,#0
+                LCALL   PSZAMKI
+                SJMP    FVS3
+FVS1            LCALL   HANGAD
+FVS3            LCALL   PONTKIIR
+                LCALL   DARTKIJ
+                LCALL   POLAMKI
+                POP     JNUM
+                LJMP    JUMPVEGE       ; VISSZATERHET
+
+
+G_HALVES       PUSH    B
+               PUSH    JNUM
+               MOV     JNUM,JATAKT         ; AZ AKT. JATEKOS SZAMA
+               MOV     DPTR,#HAL_CEL         ; BEHOZZUK A DOBANDO SZAMOT
+               MOV     A,AKTKOR              ; AKT. MENET SZAMA
+               DEC     A                     ; NULLAVAL KEZDODJON
+               MOV     B,#3                  ; HAROMMAL SZORZUNK
+               MUL     AB                    ; A-BAN AZ ELTOLAS
+               ADD     A,NRDART
+               ADD     A,DPL
+               MOV     DPL,A
+               MOVX    A,@DPTR
+               MOV     NUM,A             ; A-BAN A DOBANDO SZAM (BCD)
+               MOV     A,#50H
+               CJNE    A,CTPONT,HLV5     ; HA NEM 50-ET DOBTAK, UGRIK
+               MOV     A,#21H            ; HA NEM AZT KELLETT DOBNI,
+               CJNE    A,NUM,HLV2        ; HA NEM EGYENLO, ERVENYTELEN
+              SJMP    HLV3               ; ELFOGADJUK
+HLV5          MOV     A,#25H
+              CJNE    A,CTPONT,HLV6      ; HA NEM 25-OT DOBTAK, UGRIK
+              MOV     A,#21H             ; HA NEM AZT KELLETT DOBNI,
+              CJNE    A,NUM,HLV2         ; HA NEM EGYENLO, ERVENYTELEN
+              SJMP    HLV3               ; ELFOGADJUK
+HLV6          MOV     A,NUM              ; EGYEB ESETEK
+              CJNE    A,CTPONT,HLV2      ; HA NEM EGYENLO, NULLAZZUK
+              SJMP    HLV3
+HLV2          MOV       CTPONT,#0         ; PONTSZAM NULLAZASA
+              MOV       DREG,#0
+HLV3          LCALL	PONTSZOR
+              LCALL     HIT_INC            ; STATISZTIKA
+              LCALL     PONTLAMP           ; A PONTOKNAK MEGFELELO LAMPAK
+              LCALL     HANGAD
+              LCALL     HALVEDOBANDO       ; EGY MENETEN BELULI PONTOK
+              MOV       A,CTPONT
+              JZ        HLV8
+              LCALL     HOZZAAD            ; PONTSZAM HOZZAADAS
+              SJMP      HLV7
+HLV8          LCALL     FELEZO
+HLV7          LCALL     PONTKIIR
+              LCALL     DARTKIJ
+              LCALL     POLAMKI
+              POP       JNUM               ; REGISZTEREK VISSZAMENTESE
+              POP       B
+              LJMP      JUMPVEGE           ; VISSZATERHET
+
+
+
+; JATAKT KIVETELEVEL MINDENKINEK FELIRJA A DOBAS ERTEKET
+; BEJOVO ADAT: JNUM   - AKT. JATEKOS SZAMA
+;              CTPONT - DOBAS ERTEKE (FELIRANDO PONTSZAM)
+;>ABS_KICSI
+ABS_KICSI         PUSH    JNUM            ; HASZNALT REGISZTEREK MENTESE
+                  SETB    PLUSZ           ; MOST HOZZAADNI KELL
+                  MOV     A,MAXJAT        ; MEGNEZZUK, HANYAN JATSZANAK
+                  CJNE    A,#1,ARB1       ; HA NEM EGY JATEKOS VAN, UGRIK
+                  SJMP    ARB_END         ; NEM TUDOTT IRNI, KILEP
+ARB1              MOV     JNUM,#1         ; JATEKOS SZAMLALO
+ARB4              MOV     A,JNUM          ; AKT. JATEKOS BETOLTES
+                   CJNE    A,JATAKT,ARB3   ; HA NEM AZ AKT. JATEKOS, UGRIK
+                  SJMP    ARB2            ; MAGUNKNAK NEM IRUNK
+ARB3              LCALL   PONTHOZZA       ; JNUM-HOZ A PONTOT HOZZAADJUK
+                  CLR     HASZNOS         ; HASZNOS VOLT A DOBAS
+ARB2              LCALL   JATVALT         ; JATEKOS SZAMLALO NOVELES
+                  MOV     A,JNUM
+                  CJNE    A,#1,ARB4       ; HA MEG NEM A MAX., UGRIK
+ARB_END           POP     JNUM
+                  RET
+
+
+; EGY MENETEN BELULI PONTSZAM
+;>ABS_MENETPONT
+ABS_MENETPONT        PUSH    CTPONT
+                     PUSH    DREG
+                     LCALL   PONTSZOR     ; MINDEN DOBAS SZAMIT
+                     LCALL   MENETPONT
+                     POP     DREG
+                     POP     CTPONT
+                     RET
+
+; JATAKT KIVETELEVEL MINDENKINEK FELIRJA A DOBAS ERTEKET
+; BEJOVO ADAT: JNUM   - AKT. JATEKOS SZAMA
+;              CTPONT - DOBAS ERTEKE (FELIRANDO PONTSZAM)
+;              CREG   - A KEZDETI SZORZO
+;              DREG   - A MARADEK SZORZO
+;>ABS_SAJAT
+ABS_SAJAT         PUSH    JNUM            ; HASZNALT REGISZTEREK MENTESE
+                  PUSH    DREG
+                  PUSH    CTPONT
+                  SETB    PLUSZ           ; MOST HOZZAADNI KELL
+                  MOV     A,CREG          ; EREDETI SZORZOBOL A MARADEKOT
+                  CLR     C               ; CARRY TORLES
+                  SUBB    A,DREG          ; DREG-BEN A FELHASZNALT LEDEK
+                  JZ      ARS_END         ; NEM HASZNALTUNK LED-ET, KILEPHET
+                  MOV     DREG,A
+                  LCALL   PONTSZOR        ; KISZAMITJA A FELHASZNALT PONTOT
+                  LCALL   PONTHOZZA       ; HOZZAADJUK MAGUNKHOZ
+ARS_END           POP     CTPONT
+                  POP     DREG
+                  POP     JNUM
+                  RET
+
+; CSOKKENTI AZ ELLENFELEK PONTJAT, HA MEG NINCSENEK LEZARVA
+; BEJOVO ADAT: CTPONT - A BUNTETES PONTSZAM
+;                B    - ERRE A SZAMRA VIZSGAL ZARTSAGOT
+;>ABS_BUNTET
+ABS_BUNTET      PUSH    JNUM            ; JNUM-OT HASZNALJUK
+                CLR     PLUSZ           ; KIVONNI KELL
+                MOV     JNUM,#1
+ABUN1           MOV     A,JNUM          ; NEM EN VAGYOK ?
+                CJNE    A,JATAKT,ABUN2  ; NEM, UGORHAT
+                SJMP    ABUN4           ; EN VAGYOK, KOVETKEZO JATEKOSRA
+ABUN2           LCALL   JAT_ZART        ; LEZART A JATEKOS ?
+                JNZ     ABUN4           ; HA LEZART, NEM CSOKKEN A PONTJA
+                MOV	DPTR,#PONT1     ; MEGNEZI, NULLA-E A PONTSZAM
+		MOV	A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                MOVX    A,@DPTR         ; SZAZASOK
+                MOV     AREG,A
+                INC     DPTR
+                MOVX    A,@DPTR         ; A SZAZASOKAT BEOLVASSA
+                ORL     A,AREG          ; OSSZEMOSSUK A KET BYTE-OT
+                JZ      ABUN4           ; NULLA, NEM KELL MUVELET
+                LCALL   PONTHOZZA       ; PONTSZAM HOZZAADAS
+                JNB     TULCSOR,ABUN4   ; HA NEM MEGY NULLA ALA, UGRAS
+                MOV	DPTR,#PONT1     ; ALULCSORDULAS, NULLAZUNK
+		MOV	A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                CLR     A               ; NULLA LESZ A PONTSZAM
+                MOVX    @DPTR,A         ; A SZAZASOKAT BEOLVASSA
+                INC     DPTR
+		MOVX	@DPTR,A
+ABUN4           LCALL   JATVALT         ; UGRAS A KOVETKEZO JATEKOSRA
+                MOV     A,JNUM          ; HA KORBEERT, VEGE
+                CJNE    A,#1,ABUN1
+                POP     JNUM
+                RET
+
+
+;>G_ABS_CRICKET
+G_ABS_CRICKET    SETB   LED_INV        ; A LED-EKET OLTANI KELL
+                 PUSH  JNUM
+                 PUSH  CREG            ; HASZNALNI FOGJUK
+                 LCALL ABS_MENETPONT   ;
+                 CLR   HASZNOS         ; ALAPHELYZETBEN NEM HASZNOS A DOBAS
+                 MOV   B,#15           ; MEGNEZZUK, KISEBB-E 15-NEL?
+                 CLR   C
+                 MOV   A,CTPONT        ; A-BA A DOBOTT PONTSZAM
+                 LCALL BCD2BIN         ; BINARISRA ALAKITJUK
+                 SUBB  A,B             ; KIVONJUK
+                 JNC   ABS4            ; HA VAN CARRY, KICSIT DOBTUNK
+                 LCALL PONTSZOR
+                 LCALL ABS_KICSI       ; KIS PONTSZAMOKAT AZ ELLENFELEKNEK
+                 SJMP  ABS1            ; UGRAS A VEGERE
+ABS4             LCALL   CRICLAMP      ; DOBASNAK MEGFELELO LAMPA
+                 XBYTEKI  OLD_CR,#0,DREG   ; ELTAROLJUK A DREG-ET HANGHOZ
+                 LCALL    CPONT2TABL       ; CTPONT A 0-6 TARTOMANYBA
+ABS3             MOV   AREG,A          ; AREG-BE A SZAM SZAMAT
+                 MOV   JNUM,JATAKT
+                 MOV   CREG,DREG        ; TOROLJUK AZ EDDIGI SZORZOT
+                 LCALL CRPONTBE         ; BEHOZZUK AZ EDDIGI PONTSZAMOT B-BE
+                 LCALL CRMARAD          ; MEGNEZZUK A MARADEKOT 3 FOLOTT
+                 LCALL ABS_SAJAT        ; A LED-ERT KAPOTT SAJAT PONTSZAM
+                 LCALL PONTSZOR
+                 MOV   A,AREG           ; TAROLASHOZ ADATOK
+                 LCALL CRPONTKI         ; UJ PONTSZAM TAROLAS
+                 MOV   B,AREG
+                 LCALL JAT_ZART         ; MEGNEZI, LE VAN-E ZARVA
+                 JZ    ABS1             ; HA NINCS LEZARVA, UGRIK
+                 SETB  HASZNOS          ; HASZNOS, MERT PONTOT HOZ
+                 LCALL ABS_BUNTET       ; LE NEM ZART ELLENFELEKET CSOKKENTI
+ABS1        ;    LCALL   MENETPONT      ; EGY MENETEN BELULI PONTOK
+                 LCALL    HANGAD        ; A DOBASNAK MEGFELELO HANG ADASA
+            ;    MOV      CTPONT,#0
+            ;    JNB      HASZNOS,ABSK1
+            ;    MOV      CTPONT,#1
+ABSK1            LCALL   HIT_INC
+                 LCALL   PONTKIIR
+                 LCALL   DARTKIJ
+                 LCALL   POLAMKI
+                 LCALL   CR_VANGYOZ
+                 JNB     VANGYOZ,ABS11
+                 LCALL   GYOZTES
+                 SJMP    ABS_IDE
+
+                 LCALL   CRKIGYOZ       ; MEGNEZI, HOGY GYOZOTT-E VALAKI?
+                 JNB     CRGYOZ,ABS11   ; HA NEM GYOZOTT, UGRIK
+                 LCALL   CRGYOZOTT      ; GYOZTEST MEGJELOLI
+                 SETB    VANGYOZ
+                 LCALL   GYOZTES        ; UGRAS A GYOZELEMBE
+ABS_IDE          POP     CREG
+                 POP     JNUM
+                 POP     DPL
+                 POP     DPL
+                 POP     JNUM
+                 POP     DREG
+                 POP     DPL
+                 POP     DPH                ; STACK NOVELES
+                 RET
+
+ABS11            CLR    GYOZOTT
+                 POP     CREG
+                 POP     JNUM           ; REGISZTEREK VISSZAMENTESE
+                 LJMP    JUMPVEGE       ; VISSZATERHET
+
+
+; KIIRATJA A KOVETKEZONEK MEGDOBANDO SZAMOT
+;>TRA_DOB
+TRA_DOB         MOV     DPTR,#BELEPETT      ; BELEPETT TOMBBEN A SORSZAM
+                MOV     DPL,JNUM            ; JATEKOS ELTOLAS
+                MOVX    A,@DPTR             ; A-BAN A DOBANDO SORSZAM
+                JB      TR_DOWN,TRDD4       ; HA LEFELE MEGYUNK, UGRAS
+                MOV     DPTR,#TR_U          ; FELFELE HALADUNK
+                SJMP    TRDD5
+TRDD4           MOV     DPTR,#TR_D          ; SORSZAM - PONTSZAM KONVERZIO
+TRDD5           MOVC    A,@A+DPTR           ; A DOBANDO SZAM BEHIVASA
+                MOV     NUM,A               ; NUM-BAN LESZ
+                LCALL   BCD2BIN             ; A KIIRANDO SEGITSEG
+                CJNE    A,#50,TRDD8         ; HA NEM BULL KELL, UGRAS
+                MOV     A,#3
+                CJNE    A,NRDART,TRDD4A     ; HARMADIK NYIL UTAN NEM KELL
+                SJMP    TRDD3A              ;
+TRDD4A          LCALL   SBULL               ; BULL SZO KIIRATASA
+                AJMP    TRD_END
+TRDD8           RL     A                     ; A-T KETTOVEL SZOROZZUK
+                MOV    DPTR,#TREDOB
+                MOV    NUM,A                 ; ELMENTJUK
+                MOVC   A,@A+DPTR             ; BEHOZZUK AZ ADATOT
+                MOV    SNUM,A                ; MEGVAN A SZAZAS
+                MOV    A,NUM
+                INC    DPTR
+                MOVC   A,@A+DPTR
+                JZ     TRDD3A                ; HA NULLA, KILEPHET
+                MOV    NUM,A                 ; TIZESEK, EGYESEK IS MEGVANNAK
+                MOV     A,#3                ; MEGNEZI, HANYADIK NYIL
+                CJNE    A,NRDART,TRDD5A
+TRDD3A          MOV     NUM,#0AAH           ; A HARMADIK UTAN NEM IR KI
+TRDD3           MOV     SNUM,#0AH           ; A SZAZASOK HELYEN MINDIG NULLA
+TRDD5A          PUSH    JNUM
+                MOV     JNUM,#9             ; KOZEPRE FOGUNK IRNI
+                LCALL   HIDEZERO            ; KEZDO NULLAK ELTUNTETESE
+                LCALL   PONTSZAM            ; KIIRATAS A PONTSZAM TERULETRE
+	        POP	JNUM                ; A KIJELZARE MAJD KESOBB KERUL
+TRD_END         RET
+
+; TRENING DOBASI SEGITSEG
+TREDOB   DW       0H  ;  0
+         DW       0H  ;  1
+         DW    00C1H  ;  2 - D1
+         DW    00B1H  ;  3 - T1
+         DW    00C2H  ;  4 - D2
+         DW       0H  ;  5
+         DW    00C3H  ;  6 - D3
+         DW       0H  ;  7
+         DW    00C4H  ;  8 - D4
+         DW    00B3H  ;  9 - T3
+         DW    00C5H  ; 10 - D5
+         DW       0H  ; 11
+         DW    00C6H  ; 12 - D6
+         DW       0H  ; 13
+         DW    00C7H  ; 14 - D7
+         DW    00B5H  ; 15 - T5
+         DW    00C8H  ; 16 - D8
+         DW       0H  ; 17
+         DW    00C9H  ; 18 - D9
+         DW       0H  ; 19
+         DW    0C10H  ; 20 - D10
+         DW    00B7H  ; 21 - T7
+         DW    0C11H  ; 22 - D11
+         DW       0H  ; 23
+         DW    0C12H  ; 24 - D12
+         DW       0H  ; 25
+         DW    0C13H  ; 26 - D13
+         DW    00B9H  ; 27 - T9
+         DW    0C14H  ; 28 - D14
+         DW       0H  ; 29
+         DW    0C15H  ; 30 - D15
+         DW       0H  ; 31
+         DW    0C16H  ; 32 - D16
+         DW    0B11H  ; 33 - T11
+         DW    0C17H  ; 34 - D17
+         DW       0H  ; 35
+         DW    0C18H  ; 36 - D18
+         DW       0H  ; 37
+         DW    0C19H  ; 38 - D19
+         DW    0B13H  ; 39 - T13
+         DW    0C20H  ; 40 - D20
+         DW       0H  ; 41
+         DW    0B14H  ; 42 - T14
+         DW       0H  ; 43
+         DW       0H  ; 44
+         DW    0B15H  ; 45 - T15
+         DW       0H  ; 46
+         DW       0H  ; 47
+         DW    0B16H  ; 48 - T16
+         DW       0H  ; 49
+         DW     050H  ; 50   BUL
+         DW    0B17H  ; 51 - T17
+         DW       0H  ; 52
+         DW       0H  ; 53
+         DW    0B18H  ; 54 - T18
+         DW       0H  ; 55
+         DW       0H  ; 56
+         DW    0B19H  ; 57 - T19
+         DW       0H  ; 58
+         DW       0H  ; 59
+         DW    0B20H  ; 60 - T20
+
+
+TR_D     DB   60H, 57H, 54H, 51H, 50H, 48H, 45H, 42H, 40H, 39H, 38H, 36H
+         DB   34H, 33H, 32H, 30H, 28H, 27H, 26H, 24H, 22H, 21H, 20H, 18H
+         DB   16H, 15H, 14H, 12H, 10H,  9H,  8H,  6H,  4H,  3H,  2H,   0
+
+TR_U     DB    2H,  3H,  4H,  6H,  8H,  9H, 10H, 12H, 14H, 15H, 16H, 18H
+         DB   20H, 21H, 22H, 24H, 26H, 27H, 28H, 30H, 32H, 33H, 34H, 36H
+         DB   38H, 39H, 40H, 42H, 45H, 48H, 50H, 51H, 54H, 57H, 60H,   0
+
+; 34 SZAMOT KELL OSSZESEN MEGDOBNI
+;A DREG ALAPJAN MEGNEZI, JOT DOBTAK-E. CSAK A DUPLA, A TRIPLA ES A BULL50 JO.
+TR_CONV       DB     0, 0, 1, 1, 0, 0, 0, 0, 1
+
+; VALTOZOK  R1 - KOVETKEZO DOBANDO PONT SORSZAMA
+;>G_TRENING
+G_TRENING
+              PUSH    JNUM
+              MOV     JNUM,JATAKT         ; AZ AKT. JATEKOS SZAMA
+              CBYTE   TR_CONV,DREG        ; MEGNEZZUK, DUPLA,TRIPLA-E
+              JZ      TRAD1               ; NEM LESZ JO, UGRAS
+              LCALL   PONTSZOR            ; KISZAMITJA A PONTERTEKET
+              MOV     DPTR,#BELEPETT      ; MEGNEZZUK, MIT KELLETT DOBNI
+              MOV     DPL,JNUM
+              MOVX    A,@DPTR             ; BEHOZZUK A DOBANDO SORSZAMOT
+              MOV     R1,A                ; KESOBB KELL MEG A SORSZAM
+              JB      TR_DOWN,TRAD4       ; HA LEFELE MEGYUNK, UGRAS
+              MOV     DPTR,#TR_U          ; FELFELO HALADUNK
+              SJMP    TRAD5
+TRAD4         MOV     DPTR,#TR_D          ; SORSZAM - PONTSZAM KONVERZIO
+TRAD5         MOVC    A,@A+DPTR           ; A DOBANDO SZAM BEHIVASA
+              CJNE    A,CTPONT,TRAD1      ; NEM ERVENYES DOBAS, UGRAS
+              INC     R1                  ; ERVENYES, SORSZAM NOVELHETO
+              MOV     A,R1                ; A-BA A NOVELT SORSZAM
+              MOV     DPTR,#BELEPETT      ; KIMENTES
+              MOV     DPL,JNUM
+              MOVX    @DPTR,A
+              JB      TR_DOWN,TRAD4A       ; HA LEFELE MEGYUNK, UGRAS
+              MOV     DPTR,#TR_U          ; FELFELE HALADUNK
+              SJMP    TRAD5A
+TRAD4A        MOV     DPTR,#TR_D          ; SORSZAM - PONTSZAM KONVERZIO
+TRAD5A        MOVC    A,@A+DPTR           ; A DOBANDO SZAM BEHIVASA
+              MOV     SZAZAS,#0
+              MOV     TIZEGY,A            ; EZ LESZ A KOV. PONTSZAM
+              LCALL   PSZAMKI
+              CJNE    R1,#35,TRAD3S       ; SORSZAM = 35 -> GYOZOTT
+              SJMP    TR_GYOZ
+TRAD1         MOV     CTPONT,#0           ; PONTSZAM NULLAZASA
+              MOV     DREG,#0
+TRAD3         LCALL   PONTSZOR
+TRAD3S        LCALL   HIT_INC
+              LCALL   PONTLAMP            ; A PONTOKNAK MEGFELELO LAMPAK
+              LCALL   HANGAD
+              LCALL   TRA_DOB          ; EGY MENETEN BELULI PONTOK
+              LCALL   PONTKIIR
+              LCALL   DARTKIJ
+              LCALL   POLAMKI
+              POP     JNUM                ; REGISZTEREK VISSZAMENTESE
+              LJMP    JUMPVEGE            ; VISSZATERHET
+
+TR_GYOZ       MOV     DPTR,#WIN       ; TABLAZAT BEIRAS
+              MOV     A,JATAKT        ; AKT. JATEKOS
+              ADD     A,DPL           ; ELTOLAS
+              MOV     DPL,A
+              CLR     A               ; GYOZTESNEK 0-T IRUNK
+              MOVX    @DPTR,A
+              SETB    VANGYOZ
+              MOV     NUM,#0AAH           ; KOZEPSO KIJELZOT TOROLJUK
+              MOV     SNUM,#0AH           ; GYOZELEMKOR URES LEGYEN
+              PUSH    JNUM
+              MOV     JNUM,#9             ;
+              LCALL   PONTSZAM            ;
+              POP     JNUM
+              LCALL   GYOZTES         ; UGRAS A GYOZELEMBE
+              POP     JNUM
+              POP     DPL
+              POP     DPL
+              POP     JNUM
+              POP     DREG
+              POP     DPL
+              POP     DPH              ; STACK NOVELES
+              RET
+
+G_TRENING_UP  RET
+
+
+
+; EZ A RUTIN VEGZI AZ ELLENFELEK PONTJAINAK TORLESET, HA UGYANANNYI
+; PONTJUK VAN, MINT AZ AKTIV JATEKOSNAK
+;>NULLPARC
+NULLPARC          PUSH JATAKT
+                  PUSH JNUM
+                  PUSH SNUM
+                  PUSH NUM
+                  MOV        AREG,JATAKT     ; AKT. JATEKOS R0-BA
+                  LCALL      PSZAMBE         ; AKT. JATEKOS PONTJAI BEOLV.
+                  MOV        JNUM,#1         ; ELSO JATEKOST VIZSGALJA
+                  MOV        A,SZAZAS
+                  ANL        A,#0FH          ; MARAD AZ ALSO NEGYES
+                  CJNE       A,#03H,NLP1B    ; HA NEM KEZDOERTEK, MEHET
+                  MOV        A,TIZEGY
+                  CJNE       A,#01H,NLP1B
+                  SJMP       NLP3A
+NLP1B             MOV        SNUM,SZAZAS     ; BAZIS PONTSZAM ELTAROLVA
+                  MOV        NUM,TIZEGY      ; ATMENTES
+NLP4          ;   MOV        A,JNUM
+              ;   LCALL      KIIRAS8
+                  MOV        A,AREG
+             ;    LCALL      KIIRAS8
+                  CJNE       A,JNUM,NLP1     ; HA NEM ONMAGA, UGRIK
+                  SJMP       NLP3            ; ONMAGAT NEM VIZSGALJA
+NLP1              JNB        TEAM,NLP5       ; HA NEM TEAM, UGRAS
+                  CBYTE      TEAMTARS,AREG   ; AZ AKT JATEKOS TEAMTARSA
+                  CJNE       A,JNUM,NLP5     ; HA NEM A TEAMTARS, FOLYTAT
+                  SJMP       NLP3            ; CSAPATTARS, NEM BANTJA
+NLP5              MOV        JATAKT,JNUM
+                  LCALL      PSZAMBE
+                  MOV        A,SZAZAS        ; HA A HASONLITANDO SZAM 0,
+                  ORL        A,TIZEGY        ; ATUGORJA
+                  JZ         NLP3
+                  CLR        C               ; CARRY TORLES KIVONAS ELOTT
+                  MOV        A,NUM
+                  SUBB       A,TIZEGY        ; EGYESEK OSSZEHASONLITASA
+                  JNZ        NLP3            ; HA NEM NULLA, NEM EGYENLO
+                  CLR        C               ; EDDIG EGYENLO, TOVABB VIZSG.
+                  MOV        A,SNUM
+                  SUBB       A,SZAZAS        ; SZAZASOK OSSZEHASONLITASA
+                  JNZ        NLP3            ; NEM EGYENLO, UGRAS
+  	      	  MOV	     DPTR,#PONT1     ; PONTSZAM-TERULET KEZDOCIME
+	      	  MOV	     A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+	      	  DEC	     A	             ; HOGY 0-VAL KEZDODJON
+	      	  RL	     A               ; SZORZAS KETTOVEL
+	      	  ADD	     A,DPL
+	      	  MOV	     DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                  MOV        A,#03H          ; SZAZSOK INICIALIZALASA
+                  MOVX       @DPTR,A         ; A SZAZASOKAT BEOLVASSA
+                  INC        DPTR
+                  MOV        A,#01H
+                  MOVX	     @DPTR,A         ; PONTSZAM INICIALIZALAS KESZ
+                  MOV     A,#H_PARC
+                  LCALL   H_EFFEKT
+NLP3              LCALL      JATVALT
+                  MOV        A,JNUM
+                  CJNE       A,#1,NLP4       ; HA MEG NEM ERT KORBE, UGRIK
+NLP3A             POP        NUM
+                  POP        SNUM
+                  POP        JNUM
+                  POP        JATAKT
+                  RET
+
+
+; ***************************************************************
+; HARDSCORE JATEK SZABALYAI
+
+; MEGADJA A KOVETKEZO JATEKOS SZAMAT.
+; BEJOVO ADAT: JNUM - AKTUALIS JATEKOS SZAMA
+; KIMENO ADAT: JNUM - KOVETKEZO JATEKOS SZAMA
+;>NEXT_JAT
+NEXT_JAT        PUSH    DPL             ; MENTI A HASZNALT REGISZTEREKET
+                PUSH    DPH
+                PUSH    A
+                MOV   A,JNUM           ; MEGNEZZUK, MAXJAT-E
+                CJNE  A,MAXJAT,NJT1    ; HA NEM, UGRAS
+                MOV   JNUM,#1          ; UJRA 1-EL KEZDODIK
+                POP   A
+                POP   DPH
+                POP   DPL
+                RET
+
+NJT1            MOV   DPTR,#JATKOV     ; KOV. JATEKOS TABLA BETOLTES
+                MOV   A,JNUM
+                MOVC  A,@A+DPTR        ; KOVETKEZO JATEKOS BEOLVASASA
+                MOV   JNUM,A
+                POP   A
+                POP   DPH
+                POP   DPL
+                RET                    ; VISSZATERES
+
+; AZ ELOZO JATEKOS SZAMAT ADJA MEG
+;>PREV_JAT
+PREV_JAT        PUSH    DPL             ; MENTI A HASZNALT REGISZTEREKET
+                PUSH    DPH
+                PUSH    A
+                MOV   A,JNUM           ; MEGNEZZUK, MAXJAT-E
+                CJNE  A,#1,PJT1        ; HA NEM, UGRAS
+                MOV   JNUM,MAXJAT      ; UJRA A MAXJAT KOVETKEZIK
+                POP   A
+                POP   DPH
+                POP   DPL
+                RET
+
+PJT1            MOV   DPTR,#JATPREV    ; KOV. JATEKOS TABLA BETOLTES
+                MOV   A,JNUM
+                MOVC  A,@A+DPTR        ; KOVETKEZO JATEKOS BEOLVASASA
+                MOV   JNUM,A
+                POP   A
+                POP   DPH
+                POP   DPL
+                RET                    ; VISSZATERES
+
+
+
+
+; HARDSCORE JATEK DOBAS-ERTEKELO RUTINJA
+;>G_HARD_SCORE
+G_HARD_SCORE  PUSH    JNUM
+              MOV     JNUM,JATAKT       ; AZ AKT. JATEKOS SZAMA
+              MOV     A,NRDART          ; MEGNEZZUK, HANYADIK NYIL ?
+              CJNE    A,#1,GHS1         ; NEM AZ ELSO, UGRAS
+              LCALL   PREV_JAT          ; ELOZO JATEKOS BETOLTESE
+              SJMP    GHS3              ; ELOZOVEL MEGY TOVABB
+GHS1          CJNE    A,#3,GHS3         ; MASODIK NYILNAL UGRAS
+              LCALL   NEXT_JAT          ;
+GHS3          MOV     A,CTPONT
+              JNZ     GHS4              ; NEM VOLT MELLEDOBAS, UGRIK
+              MOV     A,JATAKT          ; AKT. JATEKOS BETOLTESE
+              CJNE    A,JNUM,GHS5       ; HA NEM AZ AKT. JATEKOS, UGRIK
+              SJMP    GHS4              ; HA MI VAGYUNK, NEM CSOKKEN
+GHS5          MOV     CTPONT,#50H       ; 50 PONT LEVONAS
+              MOV     DREG,#1           ; 1-EL KELL SZOROZNI
+GHS4          LCALL   PONTSZOR          ; CTPONT:=CTPONT*DREG
+              LCALL   PONTLAMP          ; A PONTOKNAK MEGFELELO LAMPAK
+              LCALL   KIVON             ; PONTSZAM KIVONAS
+              JB      TULCSOR,HARD1X    ; TULCSORDULASNAL GYOZOTT
+              JB      NULLALETT,HARD_GYOZ      ; HA NULLALETT, GYOZHET
+              SJMP    HARD_NORM             ; A JATEK RENDESEN MEHET TOVABB
+
+HARD1X          MOV	DPTR,#PONT1     ; ALULCSORDULAS, GYOZOTT
+		MOV	A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                CLR     A               ; NULLA LESZ A PONTSZAM
+                MOVX    @DPTR,A         ; A SZAZASOKAT BEOLVASSA
+                INC     DPTR
+	        MOVX	@DPTR,A
+                SJMP    HARD_GYOZ         ; TULCSORDULAS, GYOZOTT
+
+HARD_NORM     LCALL   MENETPONT         ; EGY MENETEN BELULI PONTOK
+              LCALL   HANGAD            ; A DOBASHOZ TARTOZO HANGEFFEKT
+              LCALL   PONTKIIR          ; KIIRATAS
+              LCALL   DARTKIJ           ; MEGJELENITES
+              LCALL   POLAMKI
+              POP     JNUM
+              LJMP    JUMPVEGE
+
+HARD_GYOZ     MOV     JATAKT,JNUM       ; JNUM-OT JATAKT-BA
+              LCALL   GYOZOTT01         ; GYOZTEST MEGJELOLI
+              SETB    VANGYOZ
+              MOV    B,#B_YESS
+              LCALL  B_PLAYER
+              LCALL   GYOZTES           ; UGRAS A GYOZELEMBE
+              POP     JNUM
+              POP     DPL
+              POP     DPL
+              POP     JNUM
+              POP     DREG
+              POP     DPL
+              POP     DPH                ; STACK NOVELES
+              RET
+
+; PAIR CRICKET JATEK
+; ELLENORZI, HOGY A JATEKOS DOBASA ERVENYES-E
+; BEJOVO ADAT : BELEPETT TOMB - =1, HA MINDKET SZINRE MEHET
+;               AKTKOR        - AKTUALIS KOR SZAMA
+;               A             - 0-6 TARTOMANY
+; KIMENO ADAT: A=0 NEM JO, A=1 JO
+;             15,16,17,18,19,20,BULL
+; PAIR_CONV  DB  1, 0, 1, 0, 1, 0, 0       ; PAROS KOROKBEN EZEKRE LEHET MENNI
+PAIR_CONV  DB  0, 1, 0, 1, 0, 1, 1       ; PAROS KOROKBEN EZEKRE LEHET MENNI
+
+;>PAIR_VALID
+PAIR_VALID     PUSH    AREG
+               MOV     AREG,A              ; AREG-BEN A 0-6 TART.
+         ;     SETB    HASZNOS             ; DEFAULT: MINDENT LEHET DOBNI
+               MOV     DPTR,#BELEPETT      ; LEZART EGY SZINT A JATEKOS ?
+               MOV     DPL,JNUM
+               MOVX    A,@DPTR             ; BEHOZZUK AZ ERTEKET
+               JNZ     PVA_END             ; LEZART, MEHET MINDEN SZINRE
+               MOV     DPTR,#PAIR_CONV     ;
+               MOV     A,AREG              ; ELTOLAS
+               MOVC    A,@A+DPTR           ; KONVERZIOS ADAT BETOLTESE
+               XRL     A,AKTKOR            ; PAROS KOR ESETEN NEM INVERTAL
+               ANL     A,#01H              ; CSAK AZ ALSO BIT KELL
+               JNZ     PVA_END             ; HA NEM NULLA, DOBHATO A SZIN
+          ;    CLR     HASZNOS             ; NEM DOBHATO
+PVA_END        POP     AREG
+               RET
+
+; BEJOVO ADAT:  JNUM - AKT. JATEKOS
+; KIMENO ADAT:  KITOLTOTT BELEPETT TOMB
+;>PAIR_BELEP
+PAIR_BELEP       PUSH  B
+                 MOV   B,#0             ; 15
+                 LCALL JAT_ZART         ; MEGNEZI, LE VAN-E ZARVA
+                 JZ    PBL1             ; HA NINCS LEZARVA, MAR NEM JO
+                 MOV   B,#2             ; 17
+                 LCALL JAT_ZART         ; MEGNEZI, LE VAN-E ZARVA
+                 JZ    PBL1             ; HA NINCS LEZARVA, MAR NEM JO
+                 MOV   B,#4             ; 19
+                 LCALL JAT_ZART         ; MEGNEZI, LE VAN-E ZARVA
+                 JZ    PBL1             ; HA NINCS LEZARVA, MAR NEM JO
+                 SJMP  PBL_OK           ; KESZ A SARGA, BELEPHET
+PBL1             MOV   B,#1             ; 16
+                 LCALL JAT_ZART         ; MEGNEZI, LE VAN-E ZARVA
+                 JZ    PBL_END          ; HA NINCS LEZARVA, MAR NEM JO
+                 MOV   B,#3             ; 18
+                 LCALL JAT_ZART         ; MEGNEZI, LE VAN-E ZARVA
+                 JZ    PBL_END          ; HA NINCS LEZARVA, MAR NEM JO
+                 MOV   B,#5             ; 20
+                 LCALL JAT_ZART         ; MEGNEZI, LE VAN-E ZARVA
+                 JZ    PBL_END          ; HA NINCS LEZARVA, MAR NEM JO
+                 MOV   B,#6             ; BULL
+                 LCALL JAT_ZART         ; MEGNEZI, LE VAN-E ZARVA
+                 JZ    PBL_END          ; HA NINCS LEZARVA, MAR NEM JO
+PBL_OK           MOV   DPTR,#BELEPETT   ; BELEPETT, BEJEGYZES A TOMBBE
+                 MOV   DPL,JNUM
+                 MOV   A,#1             ; 1-ES JELOLI, HOGY BELEPETT
+                 MOVX  @DPTR,A
+
+PBL_END          POP   B
+                 RET
+
+;>G_PAIR_CRIC
+G_PAIR_CRIC      SETB   LED_INV        ; A LED-EKET OLTANI KELL
+                 PUSH  JNUM
+                 CLR   HASZNOS          ; ALAPHELYZETBEN NEM HASZNOS A DOBAS
+                 XBYTEKI  OLD_CR,#0,DREG  ; ELTAROLJUK A DREG-ET HANGHOZ
+                 LCALL CPONT2TABL       ; KONVERTALAS 0-6 TARTOMANYBA
+                 MOV   AREG,A           ; KESOBBRE MENTJUK
+                 JNC   PAI4             ; HA VAN CARRY, KICSIT DOBTUNK
+PAI1A            MOV   CTPONT,#0        ; NEM JO SZAM, NULLAZZUK
+                 MOV   DREG,#0
+                 LCALL PONTLAMP         ; NOSCORE DOBAS
+              ;  LCALL HANGAD           ; HANGOT AZ UGRAS UTAN ADUNK
+                 SJMP  PAI1             ; UGRAS A VEGERE
+
+PAI4             LCALL   PAIR_VALID     ; DOBHATO A SZAM ?
+                 JZ      PAI1A          ; HA NEM DOBHATO A SZAM, UGRAS
+                 LCALL   CRICLAMP       ; DOBASNAK MEGFELELO LAMPA
+              ;  LCALL    CPONT2TABL    ; CTPONT A 0-6 TARTOMANYBA
+PAI3             MOV   A,AREG           ; AREG-BOL A SZAM SZAMAT
+                 MOV   JNUM,JATAKT
+                 LCALL CRPONTBE         ; BEHOZZUK AZ EDDIGI PONTSZAMOT B-BE
+                 LCALL CRMARAD          ; MEGNEZZUK A MARADEKOT 3 FOLOTT
+                 MOV   A,AREG
+                 LCALL CRPONTKI         ; UJ PONTSZAM TAROLAS
+                 LCALL PAIR_BELEP       ; ELDONTI, HOGY MEHET-E MINDEN LED?
+PAI1        ;    LCALL   MENETPONT      ; EGY MENETEN BELULI PONTOK
+                 LCALL    HANGAD        ; A DOBASNAK MEGFELELO HANG ADASA
+            ;    MOV      CTPONT,#0
+            ;    JNB      HASZNOS,PAIK1
+            ;    MOV      CTPONT,#1
+PAIK1            LCALL   HIT_INC
+                 LCALL   PONTKIIR
+                 LCALL   DARTKIJ
+                 LCALL   POLAMKI
+                 CLR     GYOZOTT
+                 LCALL   CR_VANGYOZ     ; GYOZOTT VALAKI ?
+                 JNB     VANGYOZ,PAI11  ; NINCS
+                 LCALL   GYOZTES
+                 SJMP    PAIR_IDE
+
+                 LCALL   CRKIGYOZ       ; MEGNEZI, HOGY GYOZOTT-E VALAKI?
+                 JNB     CRGYOZ,PAI11   ; HA NEM GYOZOTT, UGRIK
+                 LCALL   CRGYOZOTT      ; GYOZTEST MEGJELOLI
+                 SETB    VANGYOZ
+                 LCALL   GYOZTES        ; UGRAS A GYOZELEMBE
+PAIR_IDE         POP     JNUM
+                 POP     DPL
+                 POP     DPL
+                 POP     JNUM
+                 POP     DREG
+                 POP     DPL
+                 POP     DPH                ; STACK NOVELES
+                 RET
+
+PAI11            CLR     GYOZOTT
+                 POP     JNUM           ; REGISZTEREK VISSZAMENTESE
+                 LJMP    JUMPVEGE       ; VISSZATERHET
+
+
+PAI5             PUSH    JNUM
+                 MOV     JNUM,#1        ; MINDEN JATEKOST VEGIGNEZUNK
+                 MOV     A,JNUM         ; CIKLUS ELEJE
+PAI7             DEC     A
+                 RL      A
+                 RL      A
+                 RL      A              ; NYOLCCAL   SZOROZZUK
+                 MOV     DPTR,#CRZART   ; TABLA KEZDOCIM BETOLTES
+                 ADD     A,DPL
+                 ADD     A,B            ; ELTOLAS KISZAMITVA
+                 MOV     DPL,A
+                 MOVX    A,@DPTR        ; ADAT BEOLVASAS
+                 JNZ     PAI6           ; NINCS LEZARVA, UGRIK
+                 LCALL   HOZZAAD        ; HA NINCS LEZARVA, HOZZAADJA
+PAI6             LCALL   JATVALT        ; VALT A KOV. JATEKOSRA.
+                 MOV     A,JNUM         ; MEGNEZZUK, KORBEERT-E?
+                 CJNE    A,#1,PAI7      ; MEG VAN JATEKOS, UGRIK
+                 POP     JNUM
+                 SJMP    PAI1           ; VISSZA A KIIRASHOZ
+
+
+
+;************************************************************************
+; REDMASTER JATEK
+; KEZDO PONTSZAM NULLA. PIROS MEZO NOVELI, KEK CSOKKENTI A PONTSZAMOT.
+; MELLEDOBAS 20 PONT LEVONAS. KORKORLATTAL VAN VEGE, A NAGYOBB PONT NYER.
+
+; A TABLAZAT MEGMUTATJA, HOGY EGY DOBAS PIROS MEZOBE MENT-E (1=PIROS)
+; DUPLA ES TRIPLA MEZO ESETEN A SZIN MEGEGYEZIK, ELLENTETE A SZIMPLANAK
+; MUTATO         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F
+PIROS_KEK    DB  0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0
+; MUTATO        10,11,12,13,14,15,16,17,18,19,1A,1B,1C,1D,1E,1F,20
+             DB  0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0
+
+COLOR_CONV   DB  0,0,1,1
+
+; BEJOVO ADAT: CTPONT - DOBAS PONTJA
+;              DREG   - DOBAS SZORZOJA
+
+;>G_RREDMASTER
+G_REDMASTER     PUSH    JNUM
+                CLR     TULCSOR
+                MOV     JNUM,JATAKT
+                SETB    PLUSZ           ; ALAPHELYZETBEN NOVELJUK A PONTOT
+                MOV     A,DREG          ; VIZSGALJUK A SZORZOT
+                JZ      GRED01          ; HA ROSSZ DOBAS, UGRIK
+                CJNE    A,#4,GRED02     ; HA NEM BULL25, UGRIK
+                CLR     PLUSZ           ; A BULL25 CSOKKENTI
+                SJMP    GRED3
+GRED02          CJNE    A,#8,GRED03
+                SJMP    GRED3           ; BULL50 NOVEL, UGRAS
+GRED03          ANL     A,#03H          ; BULL NE LEGYEN BENNE
+                JZ      GRED1           ; HA NULLA, BULL, VAGY ROSSZ DOBAS
+                SJMP    GRED0
+GRED01          MOV     CTPONT,#20H
+                MOV     DREG,#1
+GRED0           CBYTE   PIROS_KEK,CTPONT ; MEGNEZZUK, MILYEN SZINU
+                PUSH    A                ; ELMENTJUK
+                CBYTE   COLOR_CONV,DREG  ; KELL-E INVERTALNI?
+                MOV     AREG,A
+                POP     A                ; ELMENTETT SZIN VISSZA
+                XRL     A,AREG           ; HA KELL, INVERTAL
+                JNZ     GRED3            ; HA A=1, AKKOR PIROS MEZO VOLT
+                CLR     PLUSZ            ; CSOKKENTENI KELL A PONTOKAT
+GRED3           LCALL	PONTSZOR         ; KISZAMITJA A    MOV     JNUM,JATAKT      ; AZ AKT. JATEKOS SZAMA
+                MOV     A,CTPONT
+                LCALL   PONTLAMP         ; A PONTOKNAK MEGFELELO LAMPAK
+GRED3A          LCALL   HANGAD
+            ;   LCALL   MENETPONT        ; EGY MENETEN BELULI PONTOK
+                JB      PLUSZ,GRED3B     ; HA HOZZAADJUK, UGRIK
+                MOV	DPTR,#PONT1      ; MEGNEZI, NULLA-E A PONTSZAM
+		MOV	A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                MOVX    A,@DPTR         ; SZAZASOK
+                MOV     AREG,A
+                INC     DPTR
+                MOVX    A,@DPTR          ; A SZAZASOKAT BEOLVASSA
+                ORL     A,AREG           ; OSSZEMOSSUK A KET BYTE-OT
+                JZ      GRED4            ; NULLA, NEM KELL MUVELET
+GRED3B          LCALL   PONTHOZZA        ; PONTSZAM HOZZAADAS
+                JNB     TULCSOR,GRED4    ; HA NEM MEGY NULLA ALA, UGRAS
+                MOV	DPTR,#PONT1      ; ALULCSORDULAS, NULLAZUNK
+		MOV	A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                CLR     A               ; NULLA LESZ A PONTSZAM
+                MOVX    @DPTR,A         ; A SZAZASOKAT BEOLVASSA
+                INC     DPTR
+		MOVX	@DPTR,A
+GRED4           LCALL   PONTKIIR
+                LCALL   RED_KELL        ; BENNE VAN A DARTKIJ
+             ;  LCALL   DARTKIJ
+                LCALL   POLAMKI
+GRED1           POP     JNUM
+                LJMP    JUMPVEGE       ; VISSZATERHET
+
+;>RED_KELL
+RED_KELL         MOV      A,#4            ; RED SZO KIIRATASA
+                 LCALL    STAT_CIM
+                 RET
+
+
+G_BULLMASTER    PUSH    JNUM
+                MOV     JNUM,JATAKT    ; AZ AKT. JATEKOS SZAMA
+                LCALL   BULL_KELL
+                JNZ     GBU1          ; HA PARATLAN, BULL KELL
+                LCALL	PONTSZOR       ; IDE JO MINDEN DOBAS
+                MOV     A,CTPONT
+                LCALL   PONTLAMP       ; A PONTOKNAK MEGFELELO LAMPAK
+                LCALL   HANGAD
+                LCALL   MENETPONT      ; EGY MENETEN BELULI PONTOK
+                LCALL   PONTKIIR
+                LCALL   DARTKIJ
+                MOV     A,NRDART
+                CJNE    A,#3,GBS1      ; HA NEM AZ UTOLSO NYIL VOLT, UGRIK
+                LCALL   WAIT_COIN_500
+                LCALL   BULL_KIVON
+                PUSH    JATAKT         ; MEGNEZZUK, ELEG-E A MENETPONTSZAM
+                MOV     JATAKT,#9
+                LCALL   PSZAMBE        ; BEOLVASSUK
+                POP     JATAKT
+                MOV     A,TIZEGY
+                ORL     A,SZAZAS       ; OSSZEMOSSUK A BYTE-OKAT
+                JNZ     GBS6           ; HA NEM NULLA, OK
+                MOV     A,#H_FIVENEM
+                LCALL   H_EFFEKT
+                SJMP    GBS1
+GBS6            MOV     A,#H_FIVEJO
+                LCALL   H_EFFEKT
+                LCALL   PONTKIIR
+                LCALL  DARTKIJ
+GBS1            LCALL   POLAMKI
+                SJMP    GBU2
+GBU1            MOV     A,DREG          ; BULL VIZSGALAT
+                ANL     A,#00001100B    ; A BULLOKAT MEGHAGYJUK
+                JNZ     GBU3            ; HA NINCS, NEM KAP PONTOT
+                MOV     CTPONT,#0       ; ERVENYELEN DOBAS
+                MOV     DREG,#0         ; A SZAMOKAT NULLAZZUK
+GBU3            LCALL	PONTSZOR       ; IDE JO MINDEN DOBAS
+                MOV     A,CTPONT
+                LCALL   PONTLAMP       ; A PONTOKNAK MEGFELELO LAMPAK
+                LCALL   HANGAD
+                LCALL   MENETPONT      ; EGY MENETEN BELULI PONTOK
+                LCALL   PONTHOZZA      ; PONTSZAM HOZZAADAS
+                LCALL   PONTKIIR
+                LCALL   DARTKIJ
+                LCALL   POLAMKI
+GBU2            POP     JNUM
+                LJMP    JUMPVEGE       ; VISSZATERHET
+
+; A RUTIN MEGALLAPITJA, HOGY AZ ADOTT JATEKOSNAK BULL-T KELL-E DOBNIA
+;>BULL_KELL
+BULL_KELL       MOV     A,AKTKOR        ; BETOLTJUK AZ AKT. KORSZAMOT
+                CLR     C               ; KIVONAS ELOOT CARRY TORLES
+                SUBB    A,#11H          ; KIVONJUK A MAX. KORSZAM FELET
+                MOV     A,JNUM
+                ADDC    A,#0            ; AZ ELOBB KELETKEZETT CARRY-T HOZZA
+                JB      A0,BUK1         ; HA PARATLAN, UGRAS
+                MOV     A,#1            ; PAROS, BULLT KELL DOBNI !
+                RET
+BUK1            CLR     A
+                RET
+
+
+; PIROS VONALLAL JELOLI MEG A BULL-RA DOBO JATEKOSOKAT
+BULL_PIROS_BE    PUSH    JNUM
+                 PUSH    NUM
+                 PUSH    SEG
+                 PUSH    B
+                 CLR     EA             ; IT TILTAS
+                 MOV     JNUM,#1
+BPB3             LCALL   BULL_KELL
+                 JZ      BPB2           ; NEM KELL, TOVABBLEPES
+                 CBYTE   NY_SEG,JNUM
+                 MOV     SEG,A           ; SEG VALTOZO ELOALLITAS
+                 CBYTE   NY_JNUM,JNUM
+                 PUSH    JNUM            ; ELMENTJUK AZ EREDETIT
+                 MOV     JNUM,A          ; A BULL LAMPAJA EGJEN
+                 MOV     NUM,#7          ; MINDHAROM LED EGJEN
+                 MOV     B,#21
+                 LCALL   KILED
+                 POP     JNUM           ; UJRA ELOVESSZUK
+             ;   SJMP    BPB2
+BPB2             LCALL   JATVALT
+                 MOV     A,JNUM
+                 CJNE    A,#1,BPB3      ; HA MEG VAN JATEKOS, VISSZA
+                 LCALL  DARTKIJ
+                 SETB    EA             ; IT ENG.
+                 POP     B
+                 POP     SEG
+                 POP     NUM
+                 POP     JNUM
+                 RET
+
+; KIKAPCSOLJA A BULLMASTER ALTAL BEKAPCSOLT PIROS VONALAKAT
+BULL_PIROS_KI    PUSH    JNUM
+                 PUSH    NUM
+                 PUSH    SEG
+                 MOV     JNUM,#1
+BPK1             CBYTE   NY_SEG,JNUM
+                 MOV     SEG,A           ; SEG VALTOZO ELOALLITAS
+                 CBYTE   NY_JNUM,JNUM
+                 PUSH    JNUM           ; ELMENTJUK
+                 MOV     JNUM,A          ; JOBB OLDALI GYUJTAS
+                 MOV     NUM,#0          ; EGYIK LED SE EGJEN
+                 MOV     B,#21
+                 LCALL   KILED
+                 POP     JNUM
+;                MOV     NUM,#0          ;
+;                MOV     B,#20
+;                LCALL   KILED
+                 LCALL   JATVALT
+                 MOV     A,JNUM
+                 CJNE    A,#1,BPK1      ; HA MEG VAN JATEKOS, VISSZA
+                 POP     SEG
+                 POP     NUM
+                 POP     JNUM
+                 RET
+
+; KISZAMITJA, HOGY A CRICKETBEN AZ UJ DOBASBOL MENNYI MEGY A LEDRE,
+; ES MENNYI MARAD
+; BEJOVO ADAT: DREG - A MOSTANI PONTOK
+; BEJOVO ADAT: B    - AZ EDDIGI PONTOK
+; KIMENO ADAT: DREG - MARADEK SZORZO
+; KIMENO ADAT:  B - UJ PONTSZAM
+CRMT         DB     0H, 01H, 02H, 03H, 13H, 23H, 33H
+
+;>CRMARAD
+CRMARAD      MOV    A,B
+             ADD    A,DREG           ; A MOSTANI PONTOKAT AZ EDDIGIEKHEZ
+             MOV    DPTR,#CRMT
+             MOVC   A,@A+DPTR
+             MOV    B,A
+             ANL    B,#0FH
+             SWAP   A
+             MOV    DREG,A
+             ANL    DREG,#0FH
+             RET
+
+; TABLAZAT: MINDEN JATEKOSHOZ MEGADJA, HOGY KI A CSAPATTARSA
+
+; CRICKET LEDSZAM BEOLVASAS
+; BEJOVO ADAT: JATAKT - AKT. JATEKOS  (1-8)
+; BEJOVO ADAT:   A  - MOSTANI DOBAS (0-6)
+; KIMENO ADAT:   B  - BEOLVASOTT PONTSZAM
+;>CRPONTBE
+CRPONTBE          PUSH    A
+                  MOV     DPTR,#CRTABLA    ; TABLACIM BETOLTES
+                  MOV     A,JATAKT         ; AKT. JATEKOS SZAMA
+                  DEC     A                ; NULLAVAL KEZDODJON
+                  RL      A
+                  RL      A
+                  RL      A                ; NYOLCCAL   SZOROZZUK
+                  MOV     B,A              ; JATEKOS SZERINTI ELTOLAS B-BE
+                  POP     A
+                  ADD     A,DPL
+                  ADD     A,B              ; ELTOLAS KISZAMITVA
+                  MOV     DPL,A
+                  MOVX    A,@DPTR          ; ADAT BEOLVASAS
+                  CJNE    A,#3,CRPO1       ; HA NEM 3, UGRAS
+                  MOV     B,A              ; EREDMENY B-BE
+                  RET
+CRPO1             MOV     B,A
+                  SETB    HASZNOS         ; MAR BIZTOS, HOGY HASZNOS LESZ
+                  RET                     ; VISSZATERES
+
+; CRICKET LEDSZAM ELTAROLAS
+; BEJOVO ADAT: JATAKT - AKT. JATEKOS  (1-8)
+; BEJOVO ADAT:   A    - MOSTANI DOBAS (0-6)
+; BEJOVO ADAT:   B    - KIIRANDO PONTSZAM (0-3)
+;>CRPONTKI
+CRPONTKI          MOV     AREG,A
+                  PUSH    B
+                  MOV     DPTR,#CRTABLA    ; TABLACIM BETOLTES
+                  MOV     A,JATAKT         ; AKT. JATEKOS SZAMA
+                  DEC     A                ; NULLAVAL KEZDODJON
+                  RL      A
+                  RL      A
+                  RL      A                ; NYOLCCAL   SZOROZZUK
+                  MOV     B,A              ; JATEKOS SZERINTI ELTOLAS B-BE
+                  MOV     A,AREG
+                  ADD     A,DPL
+                  ADD     A,B              ; ELTOLAS KISZAMITVA
+                  MOV     DPL,A
+                  POP     B                ; KIIRANDO ADAT ELOJON
+                  MOV     A,B              ; ATTOLTES A-BA
+                  MOVX    @DPTR,A          ; ADAT ELTAROLAS
+                  CJNE    A,#3,CRKI1       ; HA NEM 3 PONTOT IRTUNK KI, UGRIK
+                  MOV     A,#ZARTOFS       ; ELTOLAS BETOLTESE
+                  ADD     A,DPL            ; KIMENO CIMHEZ HOZZAADJUK
+                  MOV     DPL,A            ; VISSZATOLTES
+                  MOV     A,#1             ; SZAM LEZARTSAGAT JELZI
+                  MOVX    @DPTR,A          ; ADAT ELTAROLAS
+CRKI1             RET
+
+
+; MEGNEZI EGY JATEKOS EGY SZAMAT, HOGY LE VAN-E ZARVA
+; BEJOVO ADAT: JNUM - JATEKOS SZAMA    (1-8)
+;                B  - VIZSGALANDO SZAM (0-6)
+; KIMENO ADAT:   LEZART: A = 1,  NEM ZART LE: A = 0
+;>JAT_ZART
+JAT_ZART          MOV     A,JNUM            ; JATEKOS SZAMA (NULLAVAL KEZD)
+                  DEC     A
+                  RL      A
+                  RL      A
+                  RL      A                ; NYOLCCAL   SZOROZZUK
+                  MOV     DPTR,#CRZART     ; TABLA KEZDOCIM BETOLTES
+                  ADD     A,DPL
+                  ADD     A,B              ; ELTOLAS KISZAMITVA
+                  MOV     DPL,A
+                  MOVX    A,@DPTR          ; ADAT BEOLVASAS
+                  RET                      ; A-REGISZTERBEN A KIMENET
+
+
+; BEJOVO ADAT: B - VIZSGALANDO SZAM ( 0-6)
+;
+;>ZARTVIZS
+ZARTVIZS          PUSH    JNUM          ; HASZNALT REGISZTEREK MENTESE
+                  PUSH    DREG
+                  PUSH    AREG
+                  JB      TEAM,ZRT1     ; HA TEAM VAN, KULON VIZSGALAT
+                  MOV     A,MAXJAT      ; MEGNEZZUK, HANYAN JATSZANAK
+                  CJNE    A,#1,ZRT4A    ; HA NEM EGY JATEKOS VAN, UGRIK
+                  CLR     LEZARVA       ; HA EGYEDUL VOLT
+                  LJMP    ZRT_VEG       ; EGY JATEKOS GYUJTHET PONTOT
+ZRT4A             JB      MINDZAR,ZRT2  ; HA MINDENKINEK ZARNI KELL, UGRIK
+; ELEG EGY JATEKOSNAK LEZARNI, HOGY NE LEHESSEN PONTOT SZEREZNI
+                  MOV     JNUM,#1           ; JATEKOS SZAMLALO
+ZRT4              LCALL   JAT_ZART          ; LE VAN ZARVA A JATEKOS ?
+                  JZ      ZRT3             ; NINCS LEZARVA, UGRIK
+                  MOV     A,JNUM           ; AKT. JATEKOS BETOLTES
+                  CJNE    A,JATAKT,ZRT5    ; HA NEM AZ AKT. JATEKOS, UGRIK
+
+ZRT3              LCALL   JATVALT          ; JATEKOS SZAMLALO NOVELES
+ZRT6              MOV     A,JNUM
+                  CJNE    A,#1,ZRT4        ; HA MEG NEM A MAX., UGRIK
+                  CLR     LEZARVA          ; NEM TALALT LEZARTAT
+                  LJMP    ZRT_VEG
+
+ZRT5              SETB    LEZARVA          ; LEZARVA BIT BEALLITAS
+                  LJMP    ZRT_VEG
+
+; MINDENKINEK LE KELL ZARNI, HOGY NE IRHASSUNK PONTOT
+ZRT2              MOV     JNUM,#1           ; JATEKOS SZAMLALO
+ZRT7              LCALL   JAT_ZART
+                  JZ      ZRT8             ; NINCS LEZARVA, KILEPHET
+
+                  LCALL  JATVALT            ; JATEKOSSZAMLALO NOVELESE
+                  MOV     A,JNUM
+                  CJNE    A,#1,ZRT7        ; HA MEG NEM A MAX., UGRIK
+                  SETB    LEZARVA          ; MINDENKI LE VAN ZARVA
+                  LJMP    ZRT_VEG
+
+ZRT8              CLR     LEZARVA          ; LEZARVA BIT BEALLITAS
+                  SJMP    ZRT_VEG
+
+; TEAM ESETEN ITT VIZSGALUNK LEZARTSAGOT
+ZRT1              CBYTE    TEAMTARS,JATAKT
+                  MOV      JNUM,A           ; JNUM-BAN LEGYEN A JATEKOS
+                  LCALL    JAT_ZART
+                  JZ      ZRT9             ; TARS NINCS LEZARVA, KILEP
+                  JB      MINDZAR,ZRT2     ; HA MINDENKINEK ZARNI KELL,UGRIK
+                  MOV     A,MAXJAT         ; MEGNEZZUK, HANY CSAPAT VAN
+                  CJNE    A,#1,ZRT20       ; HA NEM CSAK EGY CSAPAT VAN, UGRIK
+                  CLR     LEZARVA          ; PONTSZERZES TILTVA, KILEP
+                  SJMP    ZRT_VEG
+
+ZRT20                                      ; SZAMOLJUK A LEZART CSAPATOKAT
+                  MOV     DREG,#0
+                  MOV     JNUM,#1          ; JNUM LESZ A CIKLUSSZAMLALO
+ZRT11             MOV     A,JNUM
+                  MOV     DPTR,#CSAPAT
+                  MOVC    A,@A+DPTR        ; A CSAPAT TAGJAINAK BEOLVASASA
+                  MOV     AREG,A           ; ELMENTES KESOBBRE
+                  SWAP    A                ; ELOSZOR A FELSO NEGYEST VIZSG.
+                  ANL     A,#0FH           ; ALSO NEGYES MARAD
+                  MOV     JNUM,A
+                  LCALL   JAT_ZART
+                  JZ      ZRT10            ; HA NINCS LEZARVA, KILEP
+                  MOV     A,AREG           ; A CSAPATTARS BETOLTESE
+                  ANL     A,#0FH           ; ALSO NEGYES MARAD
+                  MOV     JNUM,A
+                  LCALL   JAT_ZART           ; LE VAN ZARVA ?
+                  JZ      ZRT10             ; HA NINCS LEZARVA, KILEP
+                  INC     DREG              ; VAN EGY LEZART CSAPAT
+
+ZRT10             INC     JNUM              ; CIKLUSSZAMLALO NOVELES
+                  MOV     A,MAXJAT          ; OSSZEHASONLITAS
+                  INC     A                 ; MAXJAT-RA MEG KELL CSINALNI
+                  CJNE    A,JNUM,ZRT11   ; HA ELERTE A MAXOT KILEP
+                  MOV     A,DREG           ; DREG VIZSGALATA
+                  DEC     A                ; A MI CSAPATUNKAT LEVONJUK
+                  JZ      ZRT12            ; NINCS MAS LEZARVA, UGRIK
+                  SETB    LEZARVA          ; MAS IS LEZART, PONTOZAS TILTVA
+                  SJMP    ZRT_VEG
+
+ZRT12             CLR     LEZARVA          ; SZABAD A PONTGYUJTES
+                  SJMP    ZRT_VEG
+
+ZRT9              SETB    LEZARVA          ; TILTJA A PONTSZERZEST
+ZRT_VEG           POP     AREG
+                  POP     DREG
+                  POP     JNUM
+                  RET                       ; MERT A TARS NINCS LEZARVA
+
+; GYOZELEM VIZSGALAT TOMBJE
+;>WINNER_INIT
+WINNER_INIT       MOV     DPTR,#WIN
+                  MOV     B,#9              ; NULLAKKAL TOLTI FEL A TOMBOT
+                  CLR     A
+WNT1              MOVX    @DPTR,A
+                  INC     DPTR
+                  DJNZ    B,WNT1
+
+                  MOV     DPTR,#TEAMWIN     ; A TEAM GYOZELEM TABLAT IS
+                  MOV     B,#5
+                  CLR     A
+WNT2              MOVX    @DPTR,A
+                  INC     DPTR
+                  DJNZ    B,WNT2
+                  RET
+
+; CSOPORT PONTSZAM TERULET INICIALIZALAS
+TEAMPONT_INIT     MOV     DPTR,#TEAMPONT
+                  MOV     B,#9
+                  CLR     A
+TNT1              MOVX    @DPTR,A
+                  INC     DPTR
+                  DJNZ    B,TNT1
+                  RET
+
+; EGYENI PONTSZAM TERULET INICIALIZALAS
+PONT1_INIT     MOV     DPTR,#PONT1
+               MOV     B,#18
+               CLR     A
+TPT1           MOVX    @DPTR,A
+               INC     DPTR
+               DJNZ    B,TPT1
+               RET
+
+; KIMENESI NYILSZAM NYILVANTARTAS INIT.
+GNYIL_INIT        MOV     DPTR,#GNYIL
+                  MOV     B,#9
+                  CLR     A
+GNYIL1            MOVX    @DPTR,A
+                  INC     DPTR
+                  DJNZ    B,GNYIL1
+                  RET
+
+
+; MENET KOZBENI GYOZELEM ELOKESZIESE - EGYESSEL TOLT FEL MINDENKIT
+;>WINFILL
+WINFILL           MOV     DPTR,#WIN
+                  MOV     R1,#9
+                  MOV     A,#1
+WFNT1             MOVX    @DPTR,A
+                  INC     DPTR
+                  DJNZ    R1,WFNT1
+                  RET
+
+; SHANGHAI GYOZELEM-VIZSGALAT TOMBJE
+SHAWIN_INIT       MOV     DPTR,#SHAWIN
+                  MOV     B,#4
+                  CLR     A
+SWNT1             MOVX    @DPTR,A
+                  INC     DPTR
+                  DJNZ    B,SWNT1
+                  RET
+
+
+; A JATEK MODHOZ SZUKSEGES INICIALIZALASOKAT HAJTJA VEGRE
+;>GAME_INIT
+GAME_INIT
+              LCALL  STAT_INIT        ; STATISZTIKAI TABLAK INICIALIZALASA
+              LCALL  CRTABLA_INIT     ; CRICKET TABLA INIT.
+              LCALL  WINNER_INIT
+              LCALL  BELEP_INIT
+              LCALL  FORR_INIT        ; HALVE JATEKHOZ INICIALIZALAS
+              CLR    TEAM              ; TEAM BIT TORLESE
+              CLR    VANGYOZ
+              CLR    GYOZOTT
+              RET
+
+;>BELEP_INIT
+BELEP_INIT
+                MOV     DPTR,#BELEPETT  ; BELEPETTEK TABLAZATA TORLESE
+                CLR     A
+                MOV     B,#8            ; NYOLCSZOR KELL MEGCSINALNI
+KDE1            MOVX    @DPTR,A
+                INC     DPTR
+                DJNZ    B,KDE1
+                RET
+
+
+; VEL. GEN. FORRASTERULET INIT.
+;>FORR_INIT
+FORR_INIT         PUSH    B
+                  MOV     DPTR,#HAL_FORR        ; TABLAZAT KEZDOCIME
+                  MOV     B,#22                 ; 21-SZER KELL IRNI
+                  CLR     A                     ; A-BAN A NOVEKVO SZAM
+FIN1              MOVX    @DPTR,A
+                  INC     DPTR
+                  ADD     A,#1
+                  DA      A                     ; BCD kodban a dobando szam
+                  DJNZ    B,FIN1
+                  POP     B
+                  PUSH    PSW
+                  MOV     PSW,#rbank2
+                  MOV     R5,#21                 ; INIT. ERTEK
+                  MOV     R6,#1
+                  POP     PSW
+                  RET
+
+; CRICKET LEDEK NYILV. TABLA + LEZARTSAG JELZO TABLA INIT.
+CRTABLA_INIT      PUSH    B
+                  MOV     DPTR,#CRTABLA         ; TABLAZAT KEZDOCIME
+                  MOV     B,#80H                ; 16*8-SZOR KELL IRNI
+                  CLR     A                     ; A-BAN AZ INIT ERTEK
+CRT1              MOVX    @DPTR,A
+                  INC     DPTR
+                  DJNZ    B,CRT1
+                  POP     B
+                  RET
+
+; STATISZTIKAI TABLAZATOK INICIALIZALASA
+;>STAT_INIT
+STAT_INIT         PUSH    B
+                  CLR     A
+                  MOV     B,#60H        ; 3*20H BYTE-OT NULLAZUNK
+                  MOV     DPTR,#T_PPD
+STIN1             MOVX    @DPTR,A
+                  INC     DPTR
+                  DJNZ    B,STIN1
+                  POP     B
+                  RET
+
+; 2. REGISZTERBANKOT HASZNALJUK
+; R5 - RMAX   - A KERT VELETLENSZAM MAXIMUMA
+; R6 - MUT    - A FOGADO TABLAZAT HELY MUTATOJA
+; R0 - OFFSET BEOLVASASHOZ
+; R1 - OFFSET KIIRASHOZ
+; R2 - A BINARIS VELETLENSZAM TAROLASA
+; R3 - A BCD VEL. SZAM TAROLAS
+;>RANDGEN
+RANDGEN           PUSH     B
+                  PUSH     PSW
+                  MOV      PSW,#rbank2          ; 2. REG. BANK
+          ;        MOV      B,#22
+          ;        MOV      DPTR,#HAL_FORR
+;RRR1              MOVX     A,@DPTR
+;                  LCALL    KIIRAS8
+;                  INC      DPTR
+;                  DJNZ     B,RRR1
+                  MOV      A,R5
+                  JZ       RNG1                 ; HA R5=0, AKKOR KILEP
+                  MOV      B,R5                 ; VELTELEN SZAM KERES
+                  LCALL    RANDOM               ; RANDOM SZAM A-BAN
+                  MOV      R2,A                 ; ELMENTJUK KESOBBRE
+                  MOV      DPTR,#HAL_FORR
+                  ADD      A,DPL                ; HOZZAADJUK
+                  MOV      DPL,A
+                  MOVX     A,@DPTR             ; A SZAMNAK MEGFELELO ELEM
+                  MOV      R3,A                 ; R3-BAN A TALALT SZAM
+            ;      LCALL    KIIRAS8
+                  MOV      R0,DPL
+                  MOV      P2,DPH
+                  MOV      A,R0                ; KIIRNI ODA FOGUNK
+                  MOV      R1,A
+                  INC      R0
+RNN1              MOVX     A,@R0                ; KOVETKEZO BYTE OLVASASA
+                  MOVX     @R1,A                ; VISSZAIRAS
+                  INC      R0                   ; FORR. TERULET NOVELES
+                  INC      R1                   ; CELTERULET NOVELES
+                  MOV      A,R0
+                  CJNE     A,#23,RNN1           ; FOR. TERULET MASOLVA
+                  DEC      R5                   ; A MAX. VEL. SZAM. CSOKK.
+                  MOV      DPTR,#HAL_CEL        ; CEL TERULET CIME
+                  MOV      A,R6                 ; ELTOLAS MUTATO
+                  ADD      A,DPL
+                  MOV      DPL,A                ; ELTOLAS DPL-BEN
+                  MOV      A,R3                 ; A VELETLEN SZAM
+                  MOVX     @DPTR,A              ; BEIRAS A TABLAZATBA
+             ;     LCALL    KIIRAS8
+                  INC      R6                   ; MUTATO NOVELESE
+RNG1              POP      PSW
+                  POP      B
+                  RET
+
+; VELETLENSZAM GENERATOR
+; BEJOVO ADAT: B- A VELETLEN SZAM MAXIMUMA
+; KIMENO ADAT: A-BAN A VELETLEN SZAM (1-B KOZOTTI)
+;>RANDOM
+RANDOM          PUSH	PSW             ; A HASZNALT REGISZTEREK ELMENTESE
+                CLR     EA
+		MOV	PSW,#rbank1
+                MOV     A,R5            ; R5-BEN VELETLEN SZAM (1-200)
+                DIV     AB
+                MOV     A,B             ; A- BA A MARADEKOT
+                INC     A               ; NOVELJUK, HOGY 1-EL KEZDODJON
+                SETB    EA
+		POP	PSW
+		RET
+
+; AZ AKTUALIS JATEKOS EDDIGI PONTSZAMANAK BEOLVASASA
+; BEJOVO ADAT: JATAKT - JATEKOS SZAMA (NEM VALTOZIK)
+; KIMENO ADAT: SZAZAS - PONTSZAM SZAZASOK
+;              TIZEGY - PONTSZAM TIZESEK, EGYESEK
+;              BCD KODBAN MEGADVA
+;>PSZAMBE
+PSZAMBE         PUSH	DPH
+		PUSH	DPL
+		MOV	DPTR,#PONT1     ; PONTSZAM-TERULET KEZDOCIME
+		MOV	A,JATAKT        ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                MOVX    A,@DPTR         ; A SZAZASOKAT BEOLVASSA
+                MOV     SZAZAS,A        ; ATIRAS A SZAZASOKABA
+                INC     DPTR
+		MOVX	A,@DPTR
+                MOV     TIZEGY,A        ; TIZESEK,EGYESEK ATIRASA
+		POP	DPL
+		POP	DPH
+                RET
+
+; BARMELY JATEKOSHOZ TETSZOLEGES PONTSZAMOT IRHATUNK EZZEL A RUTINNAL
+;>PSZAMKI
+PSZAMKI         PUSH	DPH
+		PUSH	DPL
+		MOV	DPTR,#PONT1     ; PONTSZAM-TERULET KEZDOCIME
+		MOV	A,JATAKT        ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                MOV     A,SZAZAS
+                MOVX    @DPTR,A         ; A SZAZASOK KIIRATASA
+                INC     DPTR
+                MOV     A,TIZEGY
+		MOVX	@DPTR,A         ; TIZESEK, EGYESEK KIIRASA
+		POP	DPL
+		POP	DPH
+                RET
+
+; AZ AKTUALIS CSAPAT EDDIGI PONTSZAMANAK BEOLVASASA
+; BEJOVO ADAT: JATAKT - CSAPAT SZAMA (NEM VALTOZIK)
+; KIMENO ADAT: SZAZAS - PONTSZAM SZAZASOK
+;              TIZEGY - PONTSZAM TIZESEK, EGYESEK
+;              BCD KODBAN MEGADVA
+;>TEAMPSZAMBE
+TEAMPSZAMBE     PUSH	DPH
+		PUSH	DPL
+		MOV	DPTR,#TEAMPONT  ; PONTSZAM-TERULET KEZDOCIME
+		MOV	A,JATAKT        ; A TERULET ELTOLASAT KISZAMITJUK
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                MOVX    A,@DPTR         ; A SZAZASOKAT BEOLVASSA
+                MOV     SZAZAS,A        ; ATIRAS A SZAZASOKABA
+                INC     DPTR
+		MOVX	A,@DPTR
+                MOV     TIZEGY,A        ; TIZESEK,EGYESEK ATIRASA
+		POP	DPL
+		POP	DPH
+                RET
+
+; BINARIS SZAMOT BCD-RE ALAKIT
+; BEJOVO ADAT: A- BIN. SZAM
+; KIMENO ADAT: SNUM - SZAZAS
+;              NUM  - TIZES, EGYES
+;>BIN2BCD
+BIN2BCD    PUSH  B
+           MOV   B,#100           ; ELOSZOR LEVALASZTJUK A SZAZASOKAT
+           DIV   AB               ; B-BEN LESZ A MARADEK
+           MOV   SNUM,A           ; SNUM-BAN A SZAZASOK
+           MOV   A,B              ; A-BA A TIZESEK,EGYESEK
+           MOV   B,#10            ; OSZTAS TIZZEL
+           DIV   AB               ; B-BEN AZ EGYESEK
+           MOV   NUM,B            ; ATMOZG. NUM-BA
+           SWAP  A                ; A HANYADOST A FELSO NEGYESBE TESSZUK
+           ORL   NUM,A            ; NUM-BAN A TIZES-EGYES
+           POP   B
+           RET
+
+
+;KIVON RUTIN
+; BEJOVO ADATOK: AKT. JATEKOS - JNUM
+;                AKT. PONT    - CTPONT
+; ELOTTE MEG KELL VIZSGALNI, HOGY NEM LESZ-E NEGATIV AZ EREDMENY
+; TULCSOR BITET 1-BE ALLITJA, HA AZ EREDMENY NEGATIV LENNE, ES NEM VONJA KI
+; NULLALETT BITET 1-BE ALLITJA, HA AZ EREDMENY PONT NULLA LESZ, EL IS VEGZI
+; HA DOUBLE OUT VAN, AKKOR 1-NEL IS VISSZAADJA TULCSORDULASSAL
+; A MEGADOTT JATEKOS PONTSZAM TERULETEROL BEHOZZA AZ EDDIGI PONTSZAMOT,
+; A SZAZASOKAT A CREG-BE, A TIZESEKET AZ AREG-BE TOLTI.
+; bejovo adat:- KIVONANDO PONTSZAM A CTPONT VALTOZOBAN.
+;>KIVON
+KIVON           PUSH	DPH
+		PUSH	DPL
+                PUSH    CREG
+	        PUSH	JNUM
+                CLR     NULLALETT
+                CLR     TULCSOR         ; JELZOBITEK TORLESE
+                MOV     A,CTPONT        ; HA CTPONT NULLA, NEM KELL MUVELET
+                JNZ     KVN14           ; HA NEM NULLA, MEHET TOVABB
+                LJMP    KVN1
+KVN14  	        MOV	DPTR,#PONT1
+		MOV	A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                MOVX    A,@DPTR         ; A SZAZASOKAT BEOLVASSA
+                MOV     CREG,A          ; SZAZASOK CREG-BE (KISEBBITENDO)
+                INC     DPTR
+		MOVX	A,@DPTR
+                MOV     AREG,A          ; TIZESEK AREG-BE (KISEBBITENDO)
+                MOV     A,CREG          ; MEGVIZSGALJUK, NEM LESZ-E NEGATIV
+                JNZ     KVN2            ; VAGY NULLA A KIVONAS
+                                        ; HA A SZAZASOK > 0, BIZTOSAN NEM
+                MOV     A,AREG          ; OSSZEHASONLITJUK A TIZESEKET
+                JNZ     KVN3A           ; HA NULLA A PONTSZAM, TULCSORDUL
+                SETB    TULCSOR
+                LJMP    KVN1
+KVN3A           CJNE    A,CTPONT,KVN3
+                SETB    NULLALETT       ; EGYENLOEK, 0 LESZ AZ EREDMENY
+                SJMP    KVN2
+KVN3            JB     DOUBOUT,KVN7
+                JB     MASTOUT,KVN7
+                SJMP   KVN4             ; HA SIMA KILEPES, KIHAGYJA EZT
+KVN7            MOV     A,CTPONT
+                LCALL   BCD2BIN         ; CTPONT ATALAKITJUK
+                PUSH    DREG
+                MOV     DREG,A          ; CTPONT ALAKITVA A DREG-BEN
+                MOV     A,AREG
+                LCALL   BCD2BIN
+                CLR     C
+                SUBB    A,DREG          ; KIVONJUK
+                POP     DREG
+                CJNE    A,#1,KVN4       ; HA NEM 1 AZ EREDMENY, UGRIK
+                CLR     NULLALETT
+KVN10           SETB    TULCSOR
+                CLR     NULLALETT
+                SJMP    KVN1            ; 1 VOLT AZ EREDMENY, KILEP
+KVN4            MOV     A,AREG
+                CLR     C               ; CARRY TORLESE KIVONAS ELOTT
+                SUBB    A,CTPONT        ; KIVONJUK
+                JNC     KVN2
+                SETB    TULCSOR         ; TULCSORDULAS BIT BEALLITASA
+                JNC     KVN2            ; NINCS CARRY, MEHET TOVABB
+                LJMP   KVN1            ; UGRAS A VEGERE
+KVN2            JNB    NULLALETT,KVN6  ; HA NEM TUD KILEPNI, NEM VIZSGAL.
+                JB     DOUBOUT,KVN5D
+                JB     MASTOUT,KVN5M
+                SJMP   KVN6
+KVN5D           MOV    A,DREG           ; MEGVIZSGALJUK A SZORZOT
+                CJNE   A,#2,KVN9        ; HA NEM DUPLA, UGRIK
+                SJMP   KVN6
+KVN9            CJNE   A,#8,KVN10       ; HA NEM BULL-50, UGRIK
+                SJMP   KVN6
+KVN5M           MOV    A,DREG
+                CJNE   A,#2,KVN11
+                SJMP   KVN6
+KVN11           CJNE   A,#3,KVN12
+                SJMP   KVN6
+KVN12           CJNE   A,#8,KVN10       ; NEM DUPLA, TRIPLA, EZERT KILEP
+                SJMP   KVN6
+KVN6            SETB    C               ;
+                MOV     A,#99H          ; KILENCES KOMPLEMENS KEPZESE
+                ADDC    A,#0            ; CARRY HOZZAADAS
+                SUBB	A,CTPONT        ; KOMPLEMENS KEPES A-BA
+                ADD     A,AREG          ; KISEBBITENDO HOZZAADAS
+                DA      A
+	        MOV     AREG,A          ; KULONBSEG TIZESEK AREG-BE
+                MOV     A,#99H
+                ADDC    A,#0
+                SUBB    A,#0            ; KIVINANDONAK NICSEN SZAZASA
+                ADD     A,CREG          ; SZAZASOK HOZZAADASA
+                DA      A
+                MOV     CREG,A
+                ANL     CREG,#0FH
+                MOV	DPTR,#PONT1
+		MOV	A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                MOV     A,CREG          ;
+                MOVX    @DPTR,A         ; A SZAZASOKAT KIIRASA
+                INC     DPTR
+                MOV     A,AREG
+                MOVX    @DPTR,A         ; TIZESEK, EGYESEK KIIRASA
+
+KVN1		POP	JNUM
+                POP     CREG
+		POP	DPL
+		POP	DPH
+		RET
+
+
+; HOZZAAD RUTIN
+; BEJOVO ADATOK: AKT. JATEKOS - JNUM
+;                AKT. PONT    - CTPONT
+;
+;>HOZZAAD
+HOZZAAD         PUSH	DPH
+		PUSH	DPL
+                PUSH    CREG
+	      ;  PUSH	JNUM
+                CLR     C               ; CARRY TORLESE
+                MOV     A,CTPONT        ; HA CTPONT NULLA, NINCS MUVELET
+                JZ      HZD1
+		MOV	DPTR,#PONT1
+		MOV	A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                MOVX    A,@DPTR         ; A SZAZASOKAT BEOLVASSA
+                MOV     CREG,A          ; ATMENETILEG CREG-BE
+                INC     DPTR
+		MOVX	A,@DPTR
+		ADD	A,CTPONT	; AZ EDDIGI PONTHOZ AZ UJAT
+        	DA	A
+	        MOVX	@DPTR,A		; VISSZAMENTES
+                MOV     A,CREG
+		ADDC	A,#0		; A CARRY-T HOZZA
+		DA	A
+	      ; ANL	A,#0FH		; A FELSO NEGY BIT 0 LEGYEN
+                DEC     DPL
+		MOVX	@DPTR,A		; VISSZAMENTJUK
+HZD1	      ; POP	JNUM
+                POP     CREG
+		POP	DPL
+		POP	DPH
+		RET
+
+; BULLMASTER HOZZAAD RUTIN
+; BEJOVO ADATOK: AKT. JATEKOS - JNUM
+;                AKT. PONT    - TIZEGY
+;                SZAZASOK     - SZAZASOK
+;
+;>B_HOZZAAD
+B_HOZZAAD       PUSH	DPH
+		PUSH	DPL
+                PUSH    CREG
+		MOV	DPTR,#PONT1
+		MOV	A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                MOVX    A,@DPTR         ; A SZAZASOKAT BEOLVASSA
+                MOV     CREG,A          ; ATMENETILEG CREG-BE
+                INC     DPTR
+		MOVX	A,@DPTR
+		ADD	A,TIZEGY	; AZ EDDIGI PONTHOZ AZ UJAT
+        	DA	A
+	        MOVX	@DPTR,A		; VISSZAMENTES
+                MOV     A,CREG
+		ADDC	A,SZAZAS        ; A SZAZASOKAT HOZZA
+		DA	A
+        	; ANL	A,#0FH		; A FELSO NEGY BIT 0 LEGYEN
+                DEC     DPL
+		MOVX	@DPTR,A		; VISSZAMENTJUK
+                POP     CREG
+		POP	DPL
+		POP	DPH
+		RET
+
+; OSSZEAD RUTIN - KETTO, KET BYTE-OS BCD SZAMOT AD OSSZE
+; BEJOVO ADATOK: EGYIK JATEKOS - JNUM
+;                MASIK JATEKOS - AREG
+; KIMENO ADAT:   SNUM - SZAZASOK
+; KIMENO ADAT:   NUM- TIZESEK, EGYESEK
+;
+;>OSSZEAD
+OSSZEAD         PUSH	JATAKT
+                MOV     JATAKT,JNUM
+                LCALL   PSZAMBE         ; EGYIK JATEKOS PONTSZAMA BE
+                MOV     SNUM,SZAZAS     ; ATTOLTES SNUM-NUM-BA
+                MOV     NUM,TIZEGY
+                MOV     JATAKT,AREG     ; MASIK JATEKOS PONTJAI BETOLT.
+                LCALL   PSZAMBE
+                MOV     A,NUM
+                ADD     A,TIZEGY        ; EGYESEK, TIZESEK OSSZEADVA,
+                DA      A
+                MOV     NUM,A           ; EREDMENY A NUM-BA
+                MOV     A,SNUM
+                ADDC    A,#0
+                DA      A               ; CARRY HOZZAADASA, HA VOLT
+                ADD     A,SZAZAS        ; SZAZASOK HOZZAADASA+CARRY
+                DA      A
+                MOV     SNUM,A          ; KIMENO ADAT A SNUM-BA
+              ; MOV     A,SNUM
+              ; LCALL   BYTEADAS
+              ; MOV     A,NUM
+              ; LCALL   BYTEADAS
+		POP	JATAKT
+		RET
+
+
+; OSSZEADJA MINDEGYIK AKTIV CSAPAT PONTSZAMAT ES TAROLJA A PONTSZAM
+; TERULETEN.
+;>CSAP_PONT
+CSAP_PONT       LCALL     TEAMPONT_INIT     ; TERULET INICIALIZALAS
+                PUSH      DREG
+                PUSH      JNUM          ; A HASZNALT REGISZTEREK MENTESE
+                MOV       DREG,#1
+CSP1            MOV       DPTR,#CSAPAT  ; BEOLVASSUK A KOV. PAROSITAST
+                MOV       A,DREG
+                MOVC      A,@A+DPTR
+                MOV       AREG,A        ; ATMENTES AREG-BE
+                ANL       AREG,#0FH     ; ALSO NEGYES MARAD, MASIK JATEKOS
+                SWAP      A
+                MOV       JNUM,A
+                ANL       JNUM,#0FH     ; ITT IS, EGYIK JATEKOS
+                LCALL     OSSZEAD
+                MOV       DPTR,#TEAMPONT
+                MOV       A,DREG
+                RL        A             ; SZORZAS KETTOVEL
+                ADD       A,DPL
+                MOV       DPL,A         ; ELTOLAS KISZAMITVA
+                MOV       A,SNUM        ; SZAZASOK
+          ;     LCALL     KIIRAS8
+                MOVX      @DPTR,A       ; SZAZASOK ELMENTVE
+                INC       DPTR          ; CIMMUTATO NOVELESE
+                MOV       A,NUM
+          ;     LCALL     KIIRAS8
+                MOVX      @DPTR,A       ; TIZESEK-EGYESEK KIIRASA
+                INC       DREG
+                MOV       A,MAXJAT      ; maxjathoz hasonlitjuk
+                INC       A             ; CSAK AKKOR VAN VEGE, HA MEGHALADJA
+                CJNE      A,DREG,CSP1   ; VISSZA A CIKLUS ELEJERE
+                POP       JNUM
+                POP       DREG
+                RET
+
+;FELEZO RUTIN - ADOTT JATEKOS PONTJAIT MEGRELEZI
+; BEJOVO ADATOK: AKT. JATEKOS - JNUM
+;
+;>FELEZO
+FELEZO          PUSH	DPH
+                PUSH	DPL
+                PUSH    CREG
+	        PUSH	JNUM
+                PUSH    TIZEGY
+                PUSH    CTPONT
+                MOV     CTPONT,#1        ; 1-T HOZZA KELL ADNI
+                LCALL   HOZZAAD
+		MOV	DPTR,#PONT1
+		MOV	A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                MOVX    A,@DPTR         ; A SZAZASOKAT BEOLVASSA
+                MOV     CREG,A          ; ATMENETILEG CREG-BE
+                INC     DPTR
+		MOVX	A,@DPTR
+		MOV     AREG,A	        ; AREG-BE A TIZESEK-EGYESEK
+                ANL     A,#0FH          ; ALSO NEGY BITET MEGTARTJUK
+                CLR     C
+                RRC     A               ; JOBBRA LEPTETES
+                MOV     TIZEGY,A        ; ELMENTJUK AZ EGYESEKET
+                MOV     A,AREG
+                SWAP    A
+                ANL     A,#0FH          ; ALSO NEGY BITET MEGTARTJUK
+                CLR     C               ; TIZESEKET
+                RRC     A               ; OSZTAS KETTOVEL
+                MOV     AREG,A          ; TIZESEK AZ AREG-BE
+                JNC     FLZ2            ; HA NEM VOLT CARRY, UGRIK
+                MOV     A,TIZEGY
+                ADD     A,#5            ; VOLT ATHOZAT, 5-OT HOZZAADUNK
+                MOV     TIZEGY,A        ; VISSZA A TIZEGYBE
+FLZ2            MOV     A,CREG          ; SZAZASOKAT BETOLTJUK
+                ANL     A,#0FH          ; ALSO NEGY BITET MEGTARTJUK
+                CLR     C               ; TIZESEKET
+                RRC     A               ; OSZTAS KETTOVEL
+                MOV     CREG,A          ; TIZESEK AZ AREG-BE
+                JNC     FLZ3            ; HA NEM VOLT CARRY, UGRIK
+                MOV     A,AREG
+                ADD     A,#5            ; VOLT ATHOZAT, 5-OT HOZZAADUNK
+                MOV     AREG,A          ; VISSZA A TIZEGYBE
+FLZ3            MOV     A,AREG
+                SWAP    A               ; TIZESEKET A FELSO NEGY BITBE
+                ORL     A,TIZEGY        ; OSSZEMOSSUK A KETTOT
+	        MOVX	@DPTR,A		; VISSZAMENTES
+                MOV     A,CREG
+                DEC     DPL
+		MOVX	@DPTR,A		; VISSZAMENTJUK
+                POP     CTPONT
+                POP     TIZEGY
+		POP	JNUM
+                POP     CREG
+		POP	DPL
+		POP	DPH
+		RET
+
+; A PLUSZ BIT ERTEKETOL FUGGOEN NOVELI, VAGY CSOKKENTI A JATEKOS PONTJAINAK
+; A SZAMAT.
+;>PONTHOZZA
+PONTHOZZA      JNB      PLUSZ,PNH1
+               LCALL    HOZZAAD         ; HA PLUSZ=1, A HOZZAAD-OT HIVJA MEG
+               SJMP     PNH2
+PNH1           LCALL    KIVON
+PNH2           RET
+
+
+; AZ  AKTUALIS JATEKOS DOBASAINAK FIGYELESE
+;>EGYJAT_INIT
+EGYJAT_INIT     LCALL   KORSZAM     ; AZ AKTUALIS KORSZAM KIJELZESE
+                CLR     ELVESZNYIL  ; A NYILAK ELVETELERE SZOLITO BIT
+                CLR     GYOZEQ
+                CLR     TOOMUCH
+                LCALL   SHAWIN_INIT ; EGY JATEKOS 3 DOBASAHOZ INIT.
+                LCALL   KESZUL
+                LCALL   JPONTCLR
+                MOV     NRDART,#1   ; A JATEKOS NYILAINAK SZAMA
+                MOV     DPTR,#SETNYIL   ; BEOLVASSUK AZ ADANDO NYILAK SZAMAT
+                MOVX    A,@DPTR
+                MOV     NYILSZAM,A
+                CLR     NULLNYIL
+                CLR     KAPCS_VESZ
+                MOV     A,#H_VALTO          ; JATEKOS VALTAS HANGJA
+                LCALL   H_EFFEKT
+                LCALL   SZABAD              ; ENGEDELYEZI A KOV. JATEKOST
+                LCALL   PSZAMBE             ; AZ AKT. JATEKOS EDDIGI PONTJAT
+                XBYTEKI   OLD_PT,#0,TIZEGY  ; 01-ES JATEKOKHOZ ELTAROLJUK
+                XBYTEKI   OLD_PS,#0,SZAZAS  ; ESETLEGES VISSZAALLITASHOZ
+                RET
+
+;>AD_NYIL
+AD_NYIL         PUSH    DREG
+                MOV     DREG,A
+                LCALL   NYILAK
+                LCALL  DARTKIJ
+                POP     DREG
+                RET
+
+
+VAN_FELDOB    DB  0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0
+              DB  1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0
+
+
+; VAR EGY DOBASRA. CSAK DOBAS VAGY UTES UTAN LEP KI, CTPONT-BAN
+; HA UTEST LAT, VAR EGY KICSIT, NINCS-E UTANA KOZVETLENUL DOBAS
+; KIMENO ADAT: CTPONT - A DOBOTT PONTSZAM
+; KIMENO ADAT: DREG   - SZORZO
+;>VARDOBAS
+
+VARDOBAS
+                JB      ELVESZNYIL,VRD2  ; HA NYILELVETEL, VISSZATER
+                CLR     ROSSZDOB         ; ALAPBEALLITASOK
+                CLR     VAN_REP          ; DEFAULT: NINCS REPLAY
+                CLR     REP_CUR
+                CLR     REP_PREV
+                CLR     BACK_STEP
+                SETB    DOBJON           ; VARJUK A DOBAST !!
+
+VRD3            LCALL   DOBERT1          ; (500us)
+                JZ      VRD3X            ; NEM VOLT DOBAS, ATLEPI
+                LJMP    VRD1             ; VOLT DOBAS, KILEPES
+
+VRD3X           LCALL   COIN            ; (74us) ERMEVIZSGALAT
+                JNB     LEGELSO,VRD5    ; HA NEM AZ ELSO NYIL, UGRAS
+                LCALL   KEYPRESSED      ; BARMILYEN BILL.-RE ERZEKENY
+                JZ      VRD4            ; HA NINCS GOMB, TOVABB
+                JB      FELDOBAS,VRD6  ; MAR NINCS TOBB FELDOBAS
+                LCALL   VALKEY         ; VALTOGOMB MEGNYOMVA ?
+                JZ      VRD6           ; NEM VALTOGOMB, VALAMI MAS
+                XBYTE   FEL_DOB,#0
+                JZ      VRD6           ; NINCS FELDOBAS, VISSZATORLES MEHET
+                MOV     DPTR,#VAN_FELDOB ; KELL FELDOBAS?
+                MOV     A,BREG          ; MEGNEZZUK, MILYEN JATEK
+                MOVC    A,@A+DPTR
+                JNZ     VRD9            ; HA NEM NULLA, VAN FELDOBAS
+                SJMP    VRD6
+VRD9            JB      EQUAL,VRD6      ; EQUALNAL NEM KELL FELDOBAS
+                SETB    FELDOBAS        ; KERJUK A FELDOBAST
+                CLR     DOBJON
+                XBYTEKI DOB_IDO,#0,#0   ; NE VARJON TOVABB A DOBASRA
+                RET                     ; VISSZATERES
+
+VRD2            SETB    KAPCS_VESZ      ; KAPCSOLOVAL VESSZUK EL A NYILAT
+VRD2C           SETB    ELVESZNYIL      ; AZ ELVEVO BITET BEALLITJUK
+                MOV     CTPONT,#0       ; NULLA PONTTAL ELKULDJUK A DOBAST
+                MOV     DREG,#0
+                CLR     DOBJON
+                XBYTEKI DOB_IDO,#0,#0   ; NE VARJON TOVABB A DOBASRA
+                RET
+
+
+VRD6            SETB    BACK_STEP       ; VISSZALEPES BIT BEALLITVA
+                CLR     DOBJON
+                XBYTEKI DOB_IDO,#0,#0   ; NE VARJON TOVABB A DOBASRA
+                RET                     ; VISSZATERES
+
+VRD3Y           AJMP    VRD3            ; SEGED UGRO CIM
+VRD5            LCALL   DOBERT1         ; MAR NEM AZ ELSO DOBAS
+                JNZ     VRD1            ; HA VAN DOBAS, KILEP
+                LCALL   RESKEY
+                JNZ     VRD2            ; HA A<>0, KAPCSOLOVAL VESSZUK EL
+VRD4            LCALL	DOBERT1		; (500us) MEGNEZZUK, DOBTAK-E MAR
+                JNZ     VRD1            ; HA  VOLT DOBAS, UGRIK
+                LCALL   VAN_UTES        ; (24us, ha nincs) RAOLVAS A SENSORRA
+                MOV     CTPONT,#0       ; NULLA PONTOS DOBAS
+                MOV     DREG,#0
+                JNC     VRD3Y           ; HA NEM VOLT UTES, VISSZA
+                PUSH    AREG            ; VOLT UTES, MEG RAOLVASUNK
+                MOV     AREG,#0FFH
+VRD8            LCALL   DOBERT1
+                JNZ     VRD1X            ; MEGJOTT A DOBAS
+                DJNZ    AREG,VRD8
+                MOV     AREG,#0FFH
+VRD8A           LCALL   DOBERT1
+                JNZ     VRD1X            ; MEGJOTT A DOBAS
+                DJNZ    AREG,VRD8A
+                MOV     AREG,#0FFH
+VRD8B           LCALL   DOBERT1
+                JNZ     VRD1X            ; MEGJOTT A DOBAS
+                DJNZ    AREG,VRD8B
+VRD7            POP     AREG
+                SETB    ROSSZDOB
+                MOV     CTPONT,#0       ; NEM JOTT DOBAS
+                CLR     DOBJON
+                XBYTEKI DOB_IDO,#0,#0   ; NE VARJON TOVABB A DOBASRA
+                RET
+
+VRD1X           POP     AREG
+VRD1            CLR     DOBJON          ; HA VOLT DOBAS, IDE UGRIK
+                XBYTEKI DOB_IDO,#0,#0   ; NE VARJON TOVABB A DOBASRA
+                CLR     ROSSZDOB
+                RET
+
+
+; AZ UTOLJARA DOBOTT NYIL ERTEKET JELZI KI
+; BEJOVO ADAT: CTPONT
+;>NYIL_PONT
+NYIL_PONT        PUSH    SNUM
+                 PUSH    NUM
+                 PUSH    JNUM
+                 MOV     SNUM,#0AH      ; A SZAASOK HELYEN SEMMI
+                 MOV     NUM,CTPONT     ; A NYIL ERTEKET KIJELEZZUK
+                 MOV     JNUM,#9        ; KOZEPSO KIJELZO
+                 LCALL   PONTSZAM       ; KIJELZO TERULETRE IRAS
+                 POP     JNUM
+                 POP     NUM
+                 POP     SNUM
+                 RET
+
+
+; EGY MENETEN BELULI PONTSZAM HOZZAADASA ES KIJELZESE
+;>MENETPONT
+MENETPONT       PUSH    JNUM
+                PUSH    JATAKT
+                MOV     JNUM,#9
+                MOV     JATAKT,JNUM
+                LCALL   HOZZAAD         ; HOZZAADJA A CTPONT-BAN LEVO PONTOT
+                LCALL   PSZAMBE         ; MENETPONTSZAM BEOLVASAS
+                MOV     NUM,TIZEGY      ; ATTOLTES KIJELZESHEZ
+                MOV     SNUM,SZAZAS
+                POP     JATAKT
+                LCALL   HIDEZERO
+                LCALL   PONTSZAM
+		POP	JNUM
+                RET
+
+;>BULL_KIVON
+BULL_KIVON      PUSH    JNUM
+                MOV     JNUM,#9
+                MOV     CTPONT,#40H     ; 40 PONTOT KELL LEVONNI
+                LCALL   B_KIVON
+                PUSH    JATAKT
+                MOV     JATAKT,#9
+                LCALL   PSZAMBE
+                POP     JATAKT
+                POP     JNUM
+                LCALL   B_HOZZAAD
+                PUSH    JNUM
+                MOV     JNUM,#9
+                LCALL   HIDEZERO
+                LCALL   PONTSZAM
+                POP     JNUM
+                RET
+
+;>G_DOBANDO
+G_DOBANDO       PUSH    JNUM
+                MOV     JNUM,#9
+                LCALL   HOZZAAD         ; A MENETPONTSZAMOT KISZAMITJA
+GDB4            PUSH    JATAKT
+                MOV     JATAKT,#9
+                LCALL   PSZAMBE         ; BEOLVASSA
+                POP     JATAKT
+                MOV     A,NUM           ; MEGNEZZUK, MIT IRAT KI
+                CJNE    A,#21H,GDB1
+                LCALL   SBULL
+                SJMP    GDB2
+GDB1            MOV     JNUM,#9         ; KOZEPSO PONTKIJELZO NULLAZASA
+                LCALL   HIDEZERO
+                LCALL   PONTSZAM
+                MOV     A,#H_KISZHANG
+                LCALL   H_EFFEKT
+GDB2	        POP	JNUM
+                RET
+
+; FIGYELI AZ EGY DOBASON BELULI SINGLE-DOUBLE-TRIPLE DOBAST.
+SHAFILL         MOV      A,CTPONT           ; DREG-BEN A SZORZO
+                CJNE     A,#50H,SHF1         ; HA NEM BULL-EYE, UGRIK
+                MOV      A,#2               ; 50 BULLSEYE - DUPLA
+                SJMP     SHF2
+SHF1            CJNE     A,#25H,SHF3          ;
+                MOV      A,#1               ; 25 BULLSEYE - SZIMPLA
+                SJMP     SHF2
+SHF3            MOV      A,DREG
+SHF2            MOV      DPTR,#SHAWIN
+                ADD      A,DPL
+                MOV      DPL,A
+                MOV      A,#1
+                MOVX     @DPTR,A              ; ADAT KIIRAS
+                RET
+
+; MEGVIZSGALJA, HOGY GYOZOTT-E A JATEKOS A MOSTANI DOBASAIVAL
+;>SHAGYOZ
+SHAGYOZ         MOV     AREG,#0            ; SZAMLALJA A TALALATOKAT
+                CLR     GYOZOTT            ; GYOZELEM JELZO BIT TORLES
+                MOV     DPTR,#SHAWIN
+                INC     DPTR
+                MOVX    A,@DPTR           ; SZIMPLA VOLT-E ?
+                JZ      SHG1
+                INC     AREG
+SHG1            INC     DPTR
+                MOVX    A,@DPTR           ; DUPLA VOLT-E ?
+                JZ      SHG2
+                INC     AREG
+SHG2            INC     DPTR
+                MOVX    A,@DPTR           ; TRIPLA VOLT-E ?
+                JZ      SHG3
+                INC     AREG
+SHG3            MOV     A,AREG          ; ATTOLTES A-BA
+                CJNE    A,#3,SHG4       ; HA NEM 3, UGRIK
+                SETB    GYOZOTT         ; GYOZELEM JELZO BIT BEALLITAS
+                MOV    B,#B_YESS
+                LCALL  B_PLAYER
+                LCALL   WINFILL         ; BEALLITJA A GYOZTES JATEKOST
+                MOV     DPTR,#WIN       ; TABLAZAT BEIRAS
+                MOV     A,JATAKT        ; AKT. JATEKOS
+                ADD     A,DPL           ; ELTOLAS
+                MOV     DPL,A
+                CLR     A               ; GYOZTESNEK 0-T IRUNK
+                MOVX    @DPTR,A
+SHG4            RET
+
+;>SHADOBANDO
+SHADOBANDO      MOV     DPTR,#BELEPETT
+                MOV     DPL,JNUM
+                MOVX    A,@DPTR             ; A-BAN A DOBANDO SZAM
+                MOV     NUM,A
+                MOV    A,#3
+                CJNE   A,NRDART,SHD3
+                LCALL  SHAGYOZ
+                MOV     NUM,#0AAH
+SHD3            MOV     SNUM,#0
+                PUSH    JNUM
+                MOV     A,NUM
+                CJNE    A,#21H,SHD8   ; HA BULL-T KELL DOBNI, AZT IRATJUK KI
+                LCALL   SBULL
+                SJMP    SHD9
+SHD8            MOV     JNUM,#9
+                LCALL   HIDEZERO
+                LCALL   PONTSZAM
+SHD9	        POP	JNUM
+                RET
+
+;>BLA_DOBANDO
+BLA_DOBANDO     MOV     DPTR,#BLA_DOB       ; BETOLTJUK A DOBANDO SZAM
+                MOVX    A,@DPTR             ; SORSZAMAT
+                MOV     DPTR,#BLA_SZAM
+                MOVC    A,@A+DPTR           ; SORSZAM ALAPJAN A SZAM
+                MOV     NUM,A
+                MOV    A,#3
+                CJNE   A,NRDART,BLD3       ; HARMADIK NYIL UTAN URES KIJELZO
+                MOV     NUM,#0AAH
+BLD3            MOV     SNUM,#0
+                PUSH    JNUM
+                MOV     A,NUM
+                CJNE    A,#25H,BLD8   ; HA BULL-T KELL DOBNI, AZT IRATJUK KI
+                LCALL   SBULL
+                SJMP    BLD9
+BLD8            MOV     JNUM,#9
+                LCALL   HIDEZERO
+                LCALL   PONTSZAM
+BLD9	        POP	JNUM
+                RET
+
+
+HALVEDOBANDO   PUSH    B
+               MOV     A,#1
+               CJNE    A,JNUM,HVD1
+               MOV     A,#3                   ; AZ UTOLSO NYILNAL NEM HIVJUK
+               CJNE    A,NRDART,HVD4
+               SJMP    HVD1
+HVD4     ;     LCALL   RANDGEN
+HVD1           MOV     DPTR,#HAL_CEL         ; BEHOZZUK A DOBANDO SZAMOT
+               MOV     A,AKTKOR              ; AKT. MENET SZAMA
+               DEC     A                     ; NULLAVAL KEZDODJON
+               MOV     B,#3                  ; HAROMMAL SZORZUNK
+               MUL     AB                    ; A-BAN AZ ELTOLAS
+               ADD     A,NRDART
+               INC     A                     ; EGGYEL NAGYOBB NYIL.
+               ADD     A,DPL
+               MOV     DPL,A
+               MOVX    A,@DPTR
+               MOV    NUM,A                 ; NUM-BAN A KIIRANDO SZAM
+               MOV    A,#3
+               CJNE   A,NRDART,HVD3
+               MOV     NUM,#0AAH
+HVD3           MOV     SNUM,#0
+               PUSH    JNUM
+               MOV     A,NUM
+               CJNE    A,#21H,HVD8
+               LCALL   SBULL
+               SJMP    HVD9
+HVD8           MOV     JNUM,#9
+               LCALL   HIDEZERO
+               LCALL   PONTSZAM
+HVD9	       POP	JNUM
+               POP     B
+               RET
+
+
+; EZ A RUTIN MEGHIVJA A JATEKHOZ TARTOZO ELLENORZO RUTINT
+;>JUMPVALID
+JUMPVALID       LCALL  DEBUG
+                LCALL  RANDGEN
+                MOV    A,BREG
+             ;  LCALL  SER_DEBUG
+             ;  LCALL  RANDSORS
+                MOV    DPTR,#JATEK
+                MOV    A,BREG
+                DEC    A
+                RL     A
+                RL     A
+                JMP    @A+DPTR           ; UGRAS ERRE A CIMRE
+JUMPVEGE        RET                      ; IDE VARJUK VISSZA AZ UGRAST
+
+
+; EZ A RUTIN MEGHIVJA A JATEK VEGEN A JATEKHOZ TARTOZO GYOZELEMVIZSGALATOT
+
+JUMPWINNER      MOV    DPTR,#WINRUTIN
+                MOV    A,BREG
+                DEC    A
+                RL     A
+                RL     A
+                JMP    @A+DPTR           ; UGRAS ERRE A CIMRE
+JUMPWINVEGE     RET                      ; IDE VARJUK VISSZA AZ UGRAST
+
+
+; EGY JATEKOS HAROM DOBASANAK FIGYELESE ES ERTEKELESE
+; ERTEKELESHEZ A JATEKHOZ KIJELOLT RUTINT HIVJA MEG
+
+; PVALID         EQU        G_HISCORE
+; PVALID         EQU        G_LOSCORE
+
+; MELYIK JATEKNAL KELL NYILELFOGYAS HANG ?
+NOD_HANG         DB      0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+                 DB      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+
+;>EGYJAT
+EGYJAT          PUSH    DREG
+                PUSH    JNUM
+        ;       LCALL   SAVE_VARS       ; VALTOZOK MENTESE REPLAY-HOZ
+                LCALL   EGYJAT_INIT
+                CLR     TULCSOR         ; ALAPERTELMEZESBEN NINCS TULCSOR.
+                LCALL   DOBERT1         ; MEGNEZZUK A CELTABLAT
+                JZ      DB22A           ; URES, MEHET TOVABB
+                LCALL   ERR_TARGET      ; HIBA UZENET
+DB22A           MOV     CTPONT,#0
+                MOV     A,NYILSZAM      ; HANY NYILAT KELL ADNI ?
+                CJNE    A,#3,DB22
+                SJMP    DDB1            ; 3 NYIL ADHATO
+DB22            CJNE    A,#2,DBB3       ; 1 NYIL ADHATO
+                SJMP    DDBB1           ; 2 NYIL ADAHATO
+
+DDB1            ADNYIL  3
+                MOV     NRDART,#1       ; ELSO NYIL
+DB1             LCALL    ST_SAVE           ;  GEP ALLAPOT MENTESE
+                LCALL   VARDOBAS        ; VAR EGY DOBASRA
+                JNB     BACK_STEP,D_B11 ; HA NEM KELL VISSZALEPNI, UGRAS
+                POP     JNUM
+                POP     DREG
+                POP     DPL
+                POP     DPH           ; VISSZA A MENETBE
+                POP     DPL
+                POP     DPH           ; VISSZA A JATEKSELECTBE
+                RET                    ; VISSZA A FOMENU UTANRA
+D_B11           JNB     LEGELSO,D_B12
+                CLR     LEGELSO
+                LCALL   KREDIT_LEVESZ    ; IDE KELL A KREDIT ELVETEL !!!
+                JNB     FELDOBAS,D_B12   ; HA NINCS FELDOBAS, UGRAS
+                LJMP    FEL_DOBAS        ; UGRAS FELDOBASRA, NEM IDE TER
+D_B12           JNB     VAN_REP,D_RB1   ; HA NINCS REPLAY, UGRAS
+                SETB    REP_PREV        ; ELOZO JATEKOSRA VISSZAALL
+                CLR     ELVESZNYIL      ; NEM KELL ZENELNI
+                LJMP    DBB4            ; KILEPHET A DOBASBOL
+
+D_RB1           LCALL   SAVE_VARS       ; ITT MENTI, IDAIG AZ ELOZOT ADJA
+                ADNYIL  2
+
+DB11            LCALL   JUMPVALID        ; DOBAS ELEMZO RUTIN
+	   ;	LCALL	PONTKIIR
+                LCALL   DARTKIJ
+                LCALL   DOBERT1          ; MEGNEZZUK A CELTABLAT
+                JZ      DDBB1            ; URES, MEHET TOVABB
+                LCALL   ERR_TARGET       ; HIBA UZENET
+DDBB1	        ADNYIL  2
+                MOV     NRDART,#2        ; EGGYEL KEVESEBB NYIL
+DB2             LCALL    ST_SAVE           ;  GEP ALLAPOT MENTESE
+                LCALL	VARDOBAS	 ; MEGNEZZUK, DOBTAK-E MAR
+DB12            JNB     VAN_REP,D_RB12A ; HA NINCS REPLAY, UGRAS
+                SETB    REP_CUR         ; AKTUALIS JATEKOSRA VISSZAALL
+                CLR     ELVESZNYIL      ; NEM KELL ZENELNI
+                LJMP    DBB4            ; KILEPHET A DOBASBOL
+
+D_RB12A         ADNYIL  1
+                LCALL   JUMPVALID        ; DOBAS ELEMZO RUTIN
+	  ;	LCALL	PONTKIIR
+                LCALL   DARTKIJ
+                LCALL   DOBERT1          ; MEGNEZZUK A CELTABLAT
+                JZ      DBB3             ; URES, MEHET TOVABB
+                LCALL   ERR_TARGET       ; HIBA UZENET
+DBB3	        ADNYIL  1
+                MOV     NRDART,#3    	 ; EGGYEL KEVESEBB NYIL
+DB3             LCALL    ST_SAVE           ;  GEP ALLAPOT MENTESE
+                LCALL	VARDOBAS	 ; MEGNEZZUK, DOBTAK-E MAR
+                JNB     LEGELSO,DB13     ; FLASH_GAME MIATT VAN ITT IS
+                CLR     LEGELSO
+                LCALL   KREDIT_LEVESZ    ; IDE KELL A KREDIT ELVETEL !!!
+DB13            JNB     VAN_REP,D_RB13A  ; HA NINCS REPLAY, UGRAS
+                SETB    REP_CUR          ; AKTUALIS JATEKOSRA VISSZAALL
+                CLR     ELVESZNYIL       ; NEM KELL ZENELNI
+                LJMP    DBB4             ; KILEPHET A DOBASBOL
+
+D_RB13A 	ADNYIL  0
+                LCALL   JUMPVALID        ; DOBAS ELEMZO RUTIN
+	 ;	LCALL	PONTKIIR
+                LCALL  DARTKIJ
+                JB     CHAMP,NODAR       ; VERSENYEN VAN NO_DARTS HANG
+                XBYTE   NO_DARTS,#0
+                JZ      DBB4             ; HA NEM KELL NYILELFOGYAS HANG,
+NODAR           CBYTE   NOD_HANG,BREG    ; KELL-E FOGYAS HANG ?
+                JZ      DBB4             ; HA NEM, UGRAS
+                MOV     A,#H_NYVEGE      ; ELFOGYOTT A NYIL
+                LCALL   H_EFFEKT
+
+DBB4	        MOV     NRDART,#0        ; ELFOGYOTT A NYIL
+		POP	JNUM
+		POP	DREG
+		LCALL   TILOS
+                JNB     ELVESZNYIL,DB33         ; HA NEM ELVESZNYIL, UGRAS
+                JNB     EQUAL,DB33A             ; HA NEM EQUAL, MEHET A HANG
+                JB      GYOZEQ,DB33X
+                LCALL   PSZAMBE                 ; AKT. JATEKOS PONTJA
+                MOV     A,SZAZAS
+                ORL     A,TIZEGY                ; MEGNEZZUK, NULLA-E?
+                JNZ     DB33A                   ; HA NEM NULLA, NYILELVETEL
+DB33X           MOV     A,#H_GYOZ0
+                LCALL   H_EFFEKT
+                SJMP    DB33
+DB33A           MOV     A,#H_NYVESZ
+                LCALL   H_EFFEKT
+              ; JNB     TOOMUCH,DB33      ; HA NINCS TULCSORDULAS, NEM SZOL
+              ; JB      KAPCS_VESZ,DB33   ; HA KAPCSOLOVAL JOTT, NEM KELL
+              ; MOV     B,#B_TOOMUCH
+              ; LCALL   B_PLAYER
+DB33 		JNB     TOOMUCH,DOB_END      ; HA NINCS TULCSORDULAS, NEM SZOL
+                MOV     B,#B_TOOMUCH
+                LCALL   B_PLAYER
+DOB_END         MOV     NRDART,#0         ; NINCS TOBB NYIL
+                RET
+
+
+REPLAY_CUR      RET
+
+;>SET_REPLAY
+SET_REPLAY      PUSH    B
+                ADNYIL  3                 ; LEVESZI A NYILAKAT
+                FLAMKI                    ; JATEKOS PALYALAMPAT OLTJA
+                MOV     A,#H_REP_DART
+                LCALL   H_EFFEKT
+                MOV     B,#B_REPLAY
+                LCALL   B_PLAYER
+                JNB     REP_PREV,RPR1      ; AKT. JATSZIK UJRA
+                XBYTE   OLD_JNUM,#0       ; JNUM AS
+                MOV     JNUM,A
+                XBYTE   OLD_AKTKOR,#0     ; AKTKOR VISSZAALLITASA
+                MOV     AKTKOR,A
+RPR1            FLAMBE  JNUM              ; JATEKOS PALYALAMPAT GYUJTJA
+                LCALL   LOAD_VARS         ; VALTOZOK VISSZATOLTESE
+                LCALL   KORSZAM
+                LCALL   PONTKIIR
+                LCALL   DARTKIJ
+                CLR     REP_PREV          ; JELZOBIT TORLESE
+                CLR     REP_CUR
+RPR_END         POP     B
+                RET
+
+K_SEG       DB     0,  0,  0,  0,  0,  2,  2,  2,  2
+
+; KEZDES ELOTT BULLRADOBAS LEGYEN
+;>FEL_DOBAS
+FEL_DOBAS   ;  PUSH     A
+            ;  PUSH     PSW
+            ;  PUSH     JNUM
+            ;  PUSH     AKTKOR          ; KORSZAMOT FELHASZNALJUK
+               LCALL    WAIT_COIN_100
+;              LCALL    BUFINI          ; KIJELZO TORLES
+;              LCALL    DARTKIJ
+               MOV      A,#H_FIVEJO
+               LCALL    H_EFFEKT
+               MOV      A,MAXJAT
+               JNB      TEAM,FLD1        ; HA NEM TEAM, UGRAS
+               ADD      A,MAXJAT         ; MEGEGYSZER HOZZAADJUK
+               DA       A
+FLD1           ADD      A,#2            ; PLUSZ KET DOBAST ENGEDELYEZUNK
+               DA       A
+               MOV      AKTKOR,A        ; VISSZA AKTKOR-BE
+               PLAYER   1,1             ; (SEG, JNUM VALTOZIK)
+               MOV      A,#25H           ; BULL FELIRAT KELL
+               LCALL    SETUPJAT         ; KOZEPRE BULL FELIRAT KIIRATAS
+
+	       MOV     JNUM,#1
+FLD3           MOV     DPTR,#JATSZIK      ; MEGNEZZUK, JATSZIK-E A JATEKOS
+               MOV     DPL,JNUM           ; AMELYIK JATEKOS JATSZIK, VONAL
+               MOVX    A,@DPTR            ; JATEKOS BEJEGYZES BEOLVASAS
+               JZ      FLD4               ; HA NEM JATSZIK, UGRAS
+               PUSH    JNUM
+               CBYTE   K_SEG,JNUM        ; SEG VALTOZO ELOALLITAS
+               MOV     SEG,A             ; (ERTEK: 0 VAGY 2 )
+               CBYTE   NY_JNUM,JNUM      ;
+               MOV     JNUM,A            ; A BULL LAMPAJA EGJEN
+               MOV      A,#2AH           ; VIZSZINTES VONAL
+               LCALL    SETUPJAT         ; KIJELZES
+               POP      JNUM
+
+FLD4           LCALL    JATVALT         ; LEPES A KOV. JATEKOSRA
+               MOV       A,JNUM
+               CJNE      A,#1,FLD3      ; HA NEM ERT KORBE, TOVABB
+
+FLD2           LCALL    KORSZAM         ; A HATRALEVO DOBASOK SZAMA
+               LCALL    DARTKIJ         ; KIIRATAS
+FLD2X          LCALL    VANDOBAS       ; VAN DOBAS ?
+               JB       ROSSZDOB,FLD2B    ; HA VA DOBAS UGRAS
+               LCALL    COIN              ; VAN PENZBEDOBAS ?
+               LCALL    VALKEY            ; VALTOGOMB MGNYOMVA ?
+               JZ       FLD2X             ; NEM, VISSZA
+            ;  POP      AKTKOR
+            ;  POP      JNUM
+
+               MOV      A,#H_FIVENEM
+               LCALL    H_EFFEKT
+            ;  POP      PSW
+            ;  POP      A
+               SJMP     FLD2C            ; IGEN, UGRAS
+
+FLD2B          MOV      A,#H_JODOB       ; FIGYELMEZTETO HANG
+               LCALL    H_EFFEKT
+               LCALL    WAIT_COIN_100
+               MOV      A,AKTKOR        ; MEGNEZZUK, NEM-E 10H
+               CJNE     A,#10H,FLD2A    ; HA NEM, ATUGORJA
+               MOV      AKTKOR,#0AH     ; HOGY 9 LEGYEN BELOLE
+FLD2A          DJNZ     AKTKOR,FLD2
+               LCALL    KORSZAM
+               LCALL    DARTKIJ
+            ;  POP      AKTKOR
+            ;  POP      JNUM
+               MOV      A,#H_FIVENEM
+               LCALL    H_EFFEKT
+               LCALL    VALTO
+            ;  POP      PSW
+            ;  POP      A
+
+FLD2C       ;  POP      DPL             ; VISSZA A HIVOBOL
+            ;  POP      DPH
+               POP      JNUM
+               POP      DREG            ; HIVO REGISZTEREI
+               POP      DPL
+               POP      DPH
+               LJMP     MENET
+
+; MENTES KESOBBI REPLAY-HEZ. A KREDIT_LEVESZ RUTIN HIVJA MEG.
+;>SAVE_TO_REP
+SAVE_TO_REP
+                   PUSH    PSW
+                   PUSH    A
+                   MOV     DPTR,#OLD_MAXJAT     ;ELMENTJUK A JATEKOSOK SZAMAT
+                   MOV     A,MAXJAT
+                   MOVX    @DPTR,A
+
+                   MOV     DPTR,#JAT_SORSZ
+
+                   MOV     A,BREG
+                   MOVX    @DPTR,A              ; JATEK SORSZAM ELMENTESE
+                   MOV     A,MAXJAT
+                   JNB     TEAM,STP1X            ; HA NEM TEAM, UGRAS
+                   RL      A                    ; TEAM ESETEN DUPLAZ
+STP1X              RL      A                    ; MEG EGYSZER DUPLAZ
+                   JB      CHAMP,STP2X           ; HA BAJNOKSAG, ATLEPI
+                   MOV     DPTR,#REP_LEHET      ; ELMENTI
+                   MOVX    @DPTR,A
+
+STP2X              MOV     A,#IZREPLAY          ; REPLAY GOMBOT BEKAPCSOLNI
+                   LCALL   IZZOK_BE
+
+                   MOV     C,EQUAL              ; ELMENTJUK A NEHEZITESEKET
+                   MOV     OLD_EQUAL,C
+                   MOV     C,TEAM
+                   MOV     OLD_TEAM,C
+                   MOV     C,DOUBIN
+                   MOV     OLD_DOUBIN,C
+                   MOV     C,DOUBOUT
+                   MOV     OLD_DOUBOUT,C
+                   MOV     C,MASTOUT
+                   MOV     OLD_MASTOUT,C
+                   POP     A
+                   POP     PSW
+                   RET
+
+; BEALLITJA AZ ELOZOLEG JATSZOTT JATEKOSOK SZAMAT
+
+;>REPLAY_JATSZAM
+REPLAY_JATSZAM    PUSH    A
+                  PUSH    DREG
+                  MOV     DPTR,#OLD_MAXJAT      ; ENNYIEN JATSZOTTAK
+                  MOVX    A,@DPTR
+                  MOV     DREG,A                ; LEGYEN A DREG-BEN
+RPJT5             CLR     KELL_MONEY
+                  JNB     TEAM,RPJT2            ; HA NEM TEAM, UGRAS
+                  DEC     DREG                  ; MINUSZ EGY, MERT 2 VEL
+RPJT2             MOV     MAXJAT,#0             ; KEZD A TEAM
+RPJT1             PUSH    MAXJAT
+                  LCALL   MAXJATNOV             ; MEGPROBALJA BEALLITANI
+               ;  LCALL   TIM100MS              ; LATVANYOSSAGI KESLELTETES
+                  JNB     KELL_MONEY,RPJT4
+                  POP      A
+                  JZ       RPJT3                 ; AZ ELOZO VOLT A JO
+                  MOV      DREG,A                ; UJ CIKLUSVALTOZO
+                  SJMP     RPJT5
+RPJT4             POP     A
+                  DJNZ    DREG,RPJT1
+RPJT3             MOV     A,MAXJAT
+ ;                 LCALL   SER_DEBUG
+                  POP     DREG
+                  POP     A
+                  RET
+
+; A RUTIN BEALLITJA A REPLAY JATEK NEHEZITESET
+; BEJOVO ADAT: ELMENTETT NEHEZITES BITEK
+;>REPLAY_NEHEZ
+REPLAY_NEHEZ
+                PUSH    A
+                PUSH    PSW
+                LCALL   NEHEZINIT
+RPNH0           MOV     C,OLD_EQUAL     ; EQUAL BIT BETOLTESE
+                MOV     EQUAL,C
+                JNB     EQUAL,RPNH1     ; NEM VOLT EZ AZ OPCIO
+                SETB    EQUAL           ; BIT BEALLITVA
+                BELAM   IZEQU           ; LAMPA GYUJTASA
+RPNH1           MOV     C,OLD_TEAM      ; TEAM BIT BETOLTESE
+                MOV     TEAM,C
+                JNB     TEAM,RPNH2      ; NEM VOLT EZ AZ OPCIO
+                SETB    TEAM            ; BIT BEALLITVA
+                BELAM   IZTEAM          ; LAMPA GYUJTASA
+RPNH2           MOV     C,OLD_DOUBIN    ; DOUBIN BIT BETOLTESE
+                MOV     DOUBIN,C
+                JNB     DOUBIN,RPNH3     ; NEM VOLT EZ AZ OPCIO
+                SETB    DOUBIN           ; BIT BEALLITVA
+                BELAM   IZDIN            ; LAMPA GYUJTASA
+RPNH3           MOV     C,OLD_DOUBOUT    ; DOUBOUT BIT BETOLTESE
+                MOV     DOUBOUT,C
+                JNB     DOUBOUT,RPNH4    ; NEM VOLT EZ AZ OPCIO
+                SETB    DOUBOUT          ; BIT BEALLITVA
+                BELAM   IZDOUT           ; LAMPA GYUJTASA
+RPNH4           MOV     C,OLD_MASTOUT    ; MASTOUT BIT BETOLTESE
+                MOV     MASTOUT,C
+                JNB     MASTOUT,RPNH5    ; NEM VOLT EZ AZ OPCIO
+                SETB    MASTOUT          ; BIT BEALLITVA
+                BELAM   IZMAS            ; LAMPA GYUJTASA
+
+RPNH5           LCALL   PLUSZ_KOR        ; 01 JATEKOKHOZ PLUSZ KOR
+                POP     PSW
+                POP     A
+                RET
+
+;>REPLAY_KREDIT
+REPLAY_KREDIT     MOV     DPTR,#OLD_KREDIT
+                  MOVX    A,@DPTR              ; BETOLTI A SZUKSEGES KREDITET
+                  MOV     B,A                  ; B-BEN LEGYEN A SZUKSEGES
+                  MOV     A,KREDIT             ; A-BA A MEGLEVO
+                  LCALL   BCD2BIN              ; BINARISRA ALAKTIJUK
+                  CLR     C
+                  JB      P_FREEGAME,RRLE5     ; NEM VONJUK KI
+                  SUBB    A,B                  ; LEVONTUK
+                  LCALL   BIN2BCD              ; VISSZAALAKITJUK
+                  MOV     KREDIT,NUM           ; NUM-BAN JON A BCD EREDMENY
+                  XBYTEKI  KR_EDIT,#0,KREDIT   ; A MEMORIABA IS BEIRJUK
+RRLE5             RET
+
+KRED_CON     DB   0, 1, 1, 1, 1, 2, 2, 2, 2   ; ENNYI JATEKOSNAK SZAMIT
+KRED_FLASH   DB   0, 1, 1, 1, 1, 1, 1, 1, 1
+
+; EZ A RUTIN VESZI LE A SZUKSEGES KREDITET, ES NAPLOZZA A MEGKEZDETT JATEKOT
+;>KREDIT_LEVESZ
+KREDIT_LEVESZ      LCALL   SAVE_TO_REP          ; MENTES KESOBBI REPLAYHEZ
+                   XRBYTE   JKREDIT,BREG        ; A JATEKHOZ SZUKS. KREDIT
+                   JNB     TEAM,KRLE1          ; HA NEM TEAM, UGRAS
+                   PUSH    A
+                   MOV     A,MAXJAT             ; 2*MAXJAT LESZ
+                   RL      A                    ; SZORZAS KETTOVEL
+                   MOV     B,A                  ; B-BE KELL AZ EREDMENY
+                   POP     A
+                   SJMP    KRLE3
+
+KRLE1              MOV     B,MAXJAT            ; ENNYIEN JATSZANAK
+                   JNB     PUB_GAME,KRLE3A     ; HA NEM PUB GAME, UGRIK
+                   PUSH    A
+                   CBYTE   KRED_CON,MAXJAT
+                ;  LCALL   P_DISP
+                   MOV     B,A               ; ENNYI JATEKOSSAL KELL SZAMOLNI
+                   POP     A
+                ;  LCALL   P_DISP
+KRLE3A             JNB     FLASH_GAME,KRLE3     ; HA NEM PUB GAME, UGRIK
+                   PUSH    A
+                   CBYTE   KRED_FLASH,MAXJAT
+                ;  LCALL   P_DISP
+                   MOV     B,A               ; ENNYI JATEKOSSAL KELL SZAMOLNI
+                   POP     A
+                ;  LCALL   P_DISP
+KRLE3              MUL     AB                  ; A-BAN A SZUKS. KREDIT
+                   MOV     DPTR,#OLD_KREDIT    ; ELMENTJUK REPLAY-HEZ
+                   MOVX    @DPTR,A
+                   MOV     B,A                 ; B-BEN A SZUKSEGES KREDIT
+                   MOV     A,KREDIT
+                   LCALL   BCD2BIN              ; BINARISRA ALAKTIJUK
+                   CLR     C
+                   JB      P_FREEGAME,KRLE5    ; NEM VONJUK KI
+                   SUBB    A,B                  ; LEVONTUK
+                   LCALL   BIN2BCD              ; VISSZAALAKITJUK
+                   MOV     KREDIT,NUM           ; NUM-BAN JON A BCD EREDMENY
+                   XBYTEKI  KR_EDIT,#0,KREDIT   ; A MEMORIABA IS BEIRJUK
+                   SJMP     KRLE4
+KRLE5              MOV      DPTR,#CRED_FREE     ; HOZZAADJUK A KREDITEKET
+KRLE6              LCALL    COUNTER_INC
+                   DJNZ     B,KRLE5             ; SZAB. JAT. KREDIT. SZAML.
+KRLE4              LCALL    JATPOP_INC          ; JATEKNEPSZERUSEG SZAMLALO
+                   LCALL    KRED_SAVE           ; CSOKK. KREDIT MENNY. MENTES
+               ;   LCALL    SETUPSAVE           ; ELMENTJUK A MARADEKOT
+                   RET
+
+; EGGYEL NOVELI A JATEK SZAMLALOKAT ES A JATEK NEPSZERUSEG SZAMLALOKAT
+; EGYIDEJULEG EL IS MENTI AZ EEPROMBA AZ UJ ERTEKEKET
+;>JATPOP_INC
+JATPOP_INC       PUSH    B
+                 MOV     DPTR,#GAME_ALL
+                 LCALL   COUNTER_INC
+                 MOV     DPTR,#GAME_NAPI
+                 LCALL   COUNTER_INC
+                 MOV     DPTR,#JAT_NEPSZ
+                 MOV     A,BREG
+                 DEC     A
+                 MOV     B,#3                   ; 3 BYTE EGY JATEK CIM
+                 MUL     AB                     ; ELTOLAST SZAMITUNK
+                 ADD     A,DPL
+                 MOV     DPL,A
+                 LCALL   COUNTER_INC
+                 JNB     P_FREEGAME,JPI1
+                 MOV     DPTR,#GAME_FREE
+                 LCALL   COUNTER_INC
+JPI1             POP     B
+                 RET
+
+
+                ORG    4000H
+
+; A FOMENU UTAN IDE UGRIK A PROGRAM. A KIVALASZTOTT JATEK PARAMETEREIT
+; BEALLITJA ES MEGHIVJA A JATEKOT IRANYITO PROGRAMOT
+
+JAT_SEL   AJMP   JS_NORMAL          ; 1.  HI SCORE
+          AJMP   JS_NORMAL          ; 2.  LOW SCORE
+          AJMP   JS_01GAMES         ; 3.  301
+          AJMP   JS_01GAMES         ; 4.  501
+          AJMP   JS_01GAMES         ; 5.  701
+          AJMP   JS_01GAMES         ; 6.  901
+          AJMP   JS_SHANGHAI        ; 7.  SHANGHAI
+          AJMP   JS_PUBGAME         ; 8.  PUB GAME
+          AJMP   JS_CRIC_21         ; 9.  CRICKET21
+          AJMP   JS_01GAMES         ; 10. CRICKET
+          AJMP   JS_CRIC_CTH        ; 11. CRICKET THROAT
+          AJMP   JS_NORMAL          ; 12. FIVES
+          AJMP   JS_BLA_CRIC        ; 13. BLO_CRICKET
+          AJMP   JS_NORMAL          ; 14. HALVES
+          AJMP   JS_ABS_CR          ; 15. ABS_CRICKET
+          AJMP   JS_TRENING         ; 16. TRENING
+          AJMP   JS_01GAMES         ; 17. 301 PARCHESSI
+          AJMP   JS_01GAMES         ; 18. HARD_SCORE
+          AJMP   JS_FLASH           ; 19. FLASH_GAME
+          AJMP   JS_PAIR_CR         ; 20. PAIR_CRIC
+          AJMP   JS_NORMAL          ; 21. REDMASTER
+          AJMP   JS_NORMAL          ; 22. BULLMASTER
+          AJMP   JS_TRENING         ; 23. TRENING UP
+
+;>JATEKSELECT
+JATEKSELECT   ; FENYBE
+                LCALL   WAIT_COIN_100    ; KESLELTETES
+                LCALL   WAIT_COIN_100
+                SETB    TR_DOWN          ; DEFAULT: A TRENING LEFELE MEGY
+                CLR    PUB_GAME          ; ALAPHELYZETBEN NEM PUB GAME
+                CLR    PAIR_CR
+                SETB   LEGELSO           ; MEG NEM DOBTAK EL AZ ELSOT
+                SETB   HASZNOS           ; CRICKET KIV. MINDEN JATEKBAN TRUE
+                SETB   KISZ_HAT          ; NEM KELL KISZALLOHANG
+                CLR    BACK_STEP         ; MEG NEM KELL VISSZALEPNI
+                CLR    GYOZOTT           ;
+                SETB   TILT
+                SETB   PLUSZ
+                MOV    DPTR,#SETNYIL     ; ADANDO NYILAK SZAMANAK INIT.
+                MOV    A,#3
+                MOVX   @DPTR,A           ;
+                MOV    DPTR,#BLA_DOB     ; BLACK OUT DOBANDO SORSZAM HELYE
+                MOV    A,#1              ; 1-EL KELL KEZDENI
+                MOVX   @DPTR,A           ;
+         ;       MOV    DPTR,#JAT_SORSZ
+         ;       MOV    A,BREG
+         ;       MOVX   @DPTR,A            ; KIMENTJUK A JATEK SORSZAMAT
+                CLR    LOW_WIN            ; ALACSONY PONTSZAM NYER-E?
+                MOV    A,BREG             ;
+                DEC    A
+                MOV    DPTR,#WINLOW       ; BEOLVASSUK, HOGY KIS VAGY NAGY
+                MOVC   A,@A+DPTR          ;   PONTSZAM FOG NYERNI
+                JZ     JCT5
+                SETB   LOW_WIN            ; LOW_WIN BIT BEALLITASA
+JCT5            MOV    A,BREG             ; JATEK SZAMANAK BETOLTESE
+                DEC     A                 ; NULLATOL KEZD A TABLAZAT
+                RL      A                 ; SZORZAS KETTOVEL
+                MOV     DPTR,#JAT_SEL     ; TABLAZAT KEZDICIME
+                JMP     @A+DPTR           ; UGRAS A CIMRE
+
+JS_SHANGHAI     MOV    DPTR,#BELEPETT     ; A BELEPETT TOMBOT INICIALIZALJUK
+                MOV    R1,#9              ; A NULLADIK NEM SZAMIT
+                MOV    A,#1
+JCT2            MOVX   @DPTR,A            ; EGYESEKET TOLTUNK BELE
+                INC    DPTR
+                DJNZ   R1,JCT2
+                SJMP   JS_END
+
+JS_01GAMES      LCALL  WINFILL          ; WINFILL TOMB TOLTESE
+                LJMP   JS_END
+
+JS_CRIC_21      SETB   NOSCORE          ; NOSCORE
+                LCALL  WINFILL          ; WINFILL TOMB TOLTESE
+                LJMP   JS_END
+
+JS_ABS_CR       CLR    CUTTH
+                LCALL  WINFILL          ; WINFILL TOMB TOLTESE
+                LJMP   JS_END
+
+JS_CRIC_CTH     SETB   CUTTH            ; CUT-THROAT
+                LCALL  WINFILL          ; WINFILL TOMB TOLTESE
+                LJMP   JS_END
+
+JS_PAIR_CR      SETB   PAIR_CR
+                SETB   NOSCORE          ; NEM LESZ EREDMENY
+                CLR    TEAM             ; EGYENI JATEK
+                LCALL  WINFILL          ; WINFILL TOMB TOLTESE
+                LJMP   JS_END
+
+JS_BLA_CRIC     LCALL  WINFILL          ; WINFILL TOMB TOLTESE
+                SETB   CUTTH            ; ALACSONY PONTSZAM NYER
+                CLR    TEAM             ; EGYENI JATEK
+                MOV    DPTR,#BLA_SZAM   ; DOBANDO SZAM INICIALIZALAS
+                MOV    A,#1             ; 1-EL KEZDONK
+                MOVX   @DPTR,A          ;
+                CLR    CR_BUNT          ; BITVALTOZO TORLESE
+                LJMP   JS_END
+
+JS_PUBGAME      SETB   PUB_GAME
+                LJMP   JS_END
+
+JS_TRENING      LCALL  WINFILL
+                MOV    A,BREG                     ; JATEK SORSZAMA
+                CJNE   A,#GAME_TRENING_UP,JS_END
+                CLR    TR_DOWN                    ; FELFELE HALADUNK
+                LJMP   JS_END
+
+JS_FLASH        SETB   FLASH_GAME
+                MOV    DPTR,#SETNYIL     ; ADANDO NYILAK SZAMANAK INIT.
+                MOV    A,#1
+                MOVX   @DPTR,A           ; JS_END KOVETKEZIK
+
+JS_NORMAL                               ; IDE UGRIK A LEGTOBB RUTIN
+JS_END          LCALL  MENET            ; A VALASZTOTT JATEK FUTTATASA
+                RET
+
+; EGY JATEKOT VEGIG LEFUTTATO RUTIN, A JATEKSELECT HIVJA MEG
+;>MENET
+MENET
+
+          ;     LCALL    ST_SAVE
+          ;     LCALL    SRAM_SAVE
+          ;     LCALL    ST_LOAD
+          ;     LCALL    SRAM_LOAD
+               LCALL   PONTKIIR
+               MOV     A,#IZREPLAY      ; REPLAY GOMB LEGYEN KIKAPCSOLVA
+               LCALL   IZZOK_KI
+               MOV     AKTKOR,#1       ; AKTUALIS KORSZAM BEALLITASA
+               MOV     JNUM,#1         ; CSAK AZART, HOGY LEGYEN MIT MENTENI
+               MOV     NRDART,#0       ; DARDASZAM INIT.
+               XBYTEKI OLD_JNUM,#0,JNUM      ; JNUM MENTESE
+               XBYTEKI OLD_AKTKOR,#0,AKTKOR  ; AKTKOR MENTESE
+               LCALL   SAVE_VARS             ; MAR ELOSZAR IS LEGYEN MENTES
+MN1            MOV     JNUM,#1               ; MINDEN KOR ITT KEZDODIK
+               LCALL   GNYIL_INIT            ; NYILSZAM NYILV.TARTAS INIT.
+MN2            MOV     JATAKT,JNUM           ; AKTUALIS JATEKOS SZAMA
+ 	       LCALL   EGYJAT
+               JB      GYOZOTT,MN9      ; HA MENET KOZBEN GYOZ VALAKI, UGRIK
+               JB      VAN_REP,MN4X     ; REPLAY VOLT
+               XBYTEKI OLD_JNUM,#0,JNUM      ; JNUM MENTESE
+               LCALL   JATVALT
+               MOV     A,JNUM          ; JNUM=1 AZ ELOZO KOR VEGET JELENTI
+               CJNE    A,#1,MN4        ; HA NEM A MAXJAT, UGRIK
+               JNB     VANGYOZ,MN5     ; VEGE EGY KORNEK, VIZSGALAT
+               LCALL   EQUWINNER       ; EQUAL JATEKOKNAL GYOZTES VAN
+               LCALL   GYOZTES
+               SJMP    MNVEG           ; AZ UTOLSO JATEKOS VOLT, KORVIZSG.
+MN4X           LCALL   SET_REPLAY      ; REPLAY BEALLITISA
+MN4            LCALL   VALTO           ; VALT A KOV. JATEKOSRA
+            ;  JNB     VAN_REP,MN4A    ; HA NINCS REPLAY, UGRAS
+            ;  SETB    REP_CUR         ; AKT. PALYAT ADJA VISSZA
+            ;  LCALL   SET_REPLAY      ; INFRA ALATT VOLT REPLAY GOMB
+MN4A           SJMP    MN2             ; VISSZA AZ ELEJERE
+
+MN5            XRBYTE  MOD_KMAX,BREG
+               CJNE    A,AKTKOR,MN6
+MN8        ;   SJMP    MN8
+               LCALL  JUMPWINNER       ; LEJART A KORSZAM, KERESI A GYOZTEST
+MN9            LCALL   GYOZTES         ; A GYOZTEST UNNEPLI
+               SJMP    MNVEG           ; VISSZATERES
+MN6            XBYTEKI OLD_AKTKOR,#0,AKTKOR  ; AKTKOR MENTESE
+               MOV     A,AKTKOR
+               ADD     A,#1
+               DA      A
+               MOV     AKTKOR,A         ; KORSZAMLALO NOVELESE
+               LCALL   VALTO            ; VALTAS UJ KORRE
+               JB      VAN_REP,MN2      ; HA NINCS REPLAY, UGRAS
+          ;    LCALL   REPLAY_PREV
+MN6A           LJMP    MN1
+MNVEG          RET
+
+; OSSZEHASONLITO RUTIN
+; A SZAZAS-TIZEGY PAROSBOL
+; KIVONJA  AZ SNUM-NUM PAROST
+; KIMENO ADAT: CARRY
+;>HASMAX
+HASMAX         PUSH     SNUM
+               PUSH     SNUM             ; CSAK BELSO MENTES
+               PUSH     SZAZAS
+               ANL      SNUM,#0F0H        ; EZRESEK MARADNAK
+               ANL      SZAZAS,#0F0H      ; EZRESEK MARADNAK
+               MOV      A,SZAZAS
+               CLR      C
+               SUBB     A,SNUM            ; SZAZAS-BOL A SNUM-OT KIVONJUK
+               POP      SZAZAS            ; STACK VISSZATOLTESE
+               POP      SNUM
+               JC       HSN1              ; VAN CARRY, SNUM NAGYOBB
+               JNZ      HSN2              ; POZITIV A KIVONAS, SZAZAS NAGYOBB
+               CLR      C
+
+               ANL     SNUM,#0FH
+               ANL     SZAZAS,#0FH        ; ALSO NEGY BIT MARAD
+               MOV     A,SZAZAS
+               CLR     C                  ; SZAZASOK VIZSGALATA
+               SUBB    A,SNUM             ; HA LESZ CARRY, SNUM NAGYOBB
+               JC      HSN1               ; UGRAS A VEGERE, SNUM NAGYOBB
+               JNZ     HSN2               ; A SZAZAS NAGYOBB, --> A SZAM IS
+               CLR     C                  ; CARRY TORLESE
+               MOV     A,TIZEGY           ; TIZES-EGYESEK OSSZEHASONLITASA
+               SUBB    A,NUM
+               JNC     HSN2              ; HA NUM NEM NAGYOBB, UGRIK
+HSN1           POP     SNUM
+               RET
+HSN2           CLR     C
+               POP     SNUM
+               RET
+
+;   AZ SNUM-NUM PAROSBOL
+; KIVONJA A SZAZAS-TIZEGY PAROST
+; KIMENO ADAT: CARRY
+;>HASMIN
+HASMIN         PUSH     SNUM
+               PUSH     SNUM            ; CSAK BELSO MENTES
+               PUSH     SZAZAS
+               ANL      SNUM,#0F0H        ; EZRESEK MARADNAK
+               ANL      SZAZAS,#0F0H      ; EZRESEK MARADNAK
+               MOV      A,SNUM
+               CLR      C
+               SUBB     A,SZAZAS          ; SNUM-BOL A SZAZAST KIVONJUK
+               POP      SZAZAS            ; STACK VISSZATOLTESE
+               POP      SNUM
+               JC       HMN1              ; VAN CARRY, SZAZAS NAGYOBB
+               JNZ      HMN2              ; POZITIV A KIVONAS, SNUM NAGYOBB
+               CLR      C
+HMN4           ANL     SNUM,#0FH
+               ANL     SZAZAS,#0FH        ; ALSO NEGY BIT MARAD
+               MOV     A,SNUM
+               CLR     C                  ; SZAZASOK VIZSGALATA
+               SUBB    A,SZAZAS           ; HA LESZ CARRY, SZAZAS NAGYOBB
+               JC      HMN1               ; UGRAS A VEGERE, SZAZAS NAGYOBB
+               JNZ     HMN2               ; SNUM NAGYOBB, --> A SZAM IS
+               CLR     C                  ; CARRY TORLESE
+               MOV     A,NUM              ; TIZES-EGYESEK OSSZEHASONLITASA
+               SUBB    A,TIZEGY
+               JNC     HMN2               ; HA NUM NEM NAGYOBB, UGRIK
+HMN1           POP     SNUM
+               RET
+HMN2           CLR     C
+
+               POP     SNUM
+               RET
+
+; LOW_WIN BITTOL FUGGOEN MAX.-T VAGY MIN.-T KERES
+; A PONTSZAMOK KOZUL A NEM NYEROKNEK 1-T IR
+; KIMENO ADAT : WIN TOMB, 0 - A GYOZTES PONTSZAMOKNAK
+;>WINKERES
+WINKERES       LCALL   WINNER_INIT      ; A WIN TABLAT KINULLAZZA
+               PUSH    JATAKT
+               PUSH    JNUM
+               MOV     JNUM,#1          ; ELSO JATEKOSSAL KEZDJUK
+MXK3           MOV     JATAKT,JNUM      ; ATTOLTES JATAKT-BA
+               LCALL   PSZAMBE          ; PONTSZAM BEOLVASAS
+               MOV     SNUM,SZAZAS      ; PONTSZAM SNUM-NUM-BAN
+               MOV     NUM,TIZEGY
+               PUSH    JNUM             ; KULSO CIKLUS SZAMLALOT ELMENT
+               MOV     JNUM,#1          ; BELSO HUROK
+MXK2           MOV     JATAKT,JNUM
+               MOV     DPTR,#WIN        ; BELSO CIKLUS IDE UGRIK
+               MOV     A,DPL
+               ADD     A,JATAKT         ; KEZDO ELTOLAS JATAKT
+               MOV     DPL,A
+               LCALL   PSZAMBE
+               JB      LOW_WIN,MXK4      ; HA A KIS SZAM NYER, UGRIK
+               LCALL   HASMAX
+               SJMP    MXK5
+MXK4           LCALL   HASMIN
+MXK5           JNC     MXK1             ; HA A BAZIS KISEBB, UGRIK
+               MOV     A,#1             ; A NEM NYEROKBE 1-T IR
+               MOVX    @DPTR,A          ; JELOLES A TABLAZATBA
+MXK1           LCALL   JATVALT          ; VALTAS A KOV. JATEKOSRA
+               MOV     A,JNUM
+               CJNE    A,#1,MXK2        ; HA NEM ERT KORBE, UGRIK
+               POP     JNUM             ; KULSO CIKLUS SZAMLALOT ELOVESZ
+               LCALL  JATVALT
+               MOV    A,JNUM
+               CJNE   A,#1,MXK3         ; HA MEG NEM ERT KORBE, UGRIK
+               POP    JNUM
+               POP    JATAKT
+               RET
+
+; 301-ES JATEKOKNAL CSAK A KIMENO CSAPAT NYERHET
+;>MASNEMNYER
+MASNEMNYER     PUSH    JNUM             ; HASZNALT REGISZTEREK MENTESE
+               MOV     JNUM,#1          ; CIKLUSVALTOZO
+MSN2           CBYTE   MELYTEAM,JATAKT  ; AKT. JATEKOS CSAPATSZAMA
+               CJNE    A,JNUM,MSN1      ; HA NEM JNUM, "NEM NYERT"
+MSN3           INC     JNUM             ; CIKL. SZAML. NOV.
+               MOV     A,MAXJAT         ; OSSZEHASONLITJUK
+               INC     A                ;
+               CJNE    A,JNUM,MSN2      ;
+               POP     JNUM             ; LETELT A CIKLUS
+               RET                      ; VISSZATERES
+MSN1           XBYTEKI TEAMWIN,JNUM,#1  ; NINCS MEG, "NEM NYERT" BEJEGYZES
+               SJMP    MSN3             ; VISSZA A CIKLUSBA
+
+; LOW_WIN BITTOL FUGGOEN MAX.-T VAGY MIN.-T KERES
+; A PONTSZAMOK KOZUL A NYEROKET MEGJELOLI
+;>TEAMWINKERES
+TEAMWINKERES   LCALL   WINNER_INIT    ; A WIN TABLAT KINULLAZZA
+               LCALL   CSAP_PONT      ; ELOSZOR KISZAMITJA A CSAPAT PONTOKAT
+               PUSH    JATAKT
+               PUSH    JNUM
+               MOV     JNUM,#1        ; ELSO JATEKOSSAL KEZDJUK
+TXK3           MOV     JATAKT,JNUM    ; ATTOLTES JATAKT-BA
+               LCALL   TEAMPSZAMBE    ; PONTSZAM BEOLVASAS
+               MOV     SNUM,SZAZAS    ; PONTSZAM SNUM-NUM-BAN
+               MOV     NUM,TIZEGY
+               PUSH    JNUM           ; KULSO CIKLUS SZAMLALOT ELMENT
+               MOV     JNUM,#1        ; BELSO HUROK
+TXK2           MOV     JATAKT,JNUM
+               LCALL   TEAMPSZAMBE
+               JB      LOW_WIN,TXK4   ; HA A KIS SZAM NYER, UGRIK
+               LCALL   HASMAX
+               SJMP    TXK5
+TXK4           LCALL   HASMIN
+TXK5           JNC     TXK1              ; HA A BAZIS KISEBB, UGRIK
+               XBYTEKI TEAMWIN,JATAKT,#1 ; NEM NYERT BEJEGYZES
+               MOV     A,JATAKT
+TXK1           INC     JNUM
+               MOV     A,MAXJAT
+               ADD     A,#1              ; MEGHALADTA MAXJAT-OT ?
+               CJNE    A,JNUM,TXK2       ; HA NEM ERT KORBE, UGRIK
+               POP     JNUM              ; KULSO CIKLUS SZAMLALOT ELOVESZ
+               INC     JNUM              ; VALTAS A KOV. CSAPATRA
+               MOV     A,MAXJAT
+               INC     A                 ; MEGHALADTA MAXJAT-OT ?
+               CJNE    A,JNUM,TXK3       ; HA MEG NEM ERT KORBE, UGRIK
+               POP     JNUM
+               POP     JATAKT
+               RET
+
+; MEGVIZSGALJA, HOGY A JATEKOSNAK EG-E MIND A 21 LED ?
+; HA MEGVAN MIND A 21 LED, A CRGYOZ-T 1-BE ALLITJA
+;>LED21
+LED21         CLR     CRGYOZ            ; JELZOBIT TORLESE
+              PUSH    B                 ; A B-T HASZNALJUK
+              CLR     A
+CRLE2         PUSH    A
+              LCALL   CRPONTBE          ; PONTSZAM BEOLVASAS
+              MOV     A,#3
+              CJNE    A,B,CRLE1          ; HA B<>3, KILEPES
+              POP     A                 ; B=3, MEHET TOVABB
+              INC     A                 ; CIKLUSSZAMLALO NOVELES
+              CJNE    A,#7,CRLE2
+        ;      MOV     A,#66H
+        ;      LCALL   BYTEADAS
+              SETB    CRGYOZ
+              POP     B
+              RET
+CRLE1         POP     A
+              POP     B
+              RET
+
+; KRIKETT JATEK ESETEN A LEDEKET ES A PONTOKAT EGYUTTESEN KELL VIZSGALNI.
+; TEAM JATEK ESETEN MEGVIZSGALJA, HOGY A CSAPATOKNAK MEGVAN-E A 21 LED?
+;>TEAMLEDKERES
+TEAMLEDKERES   PUSH    JNUM
+               PUSH    JATAKT
+               PUSH    B
+               JNB     NOSCORE,TWLD1     ; HA NEM NOSCORE, NEM KELL NULLAZNI
+               MOV     DPTR,#TEAMWIN     ; A TEAM GYOZELEM TABLAT IS
+               MOV     B,#5
+               CLR     A
+TWLD           MOVX    @DPTR,A
+               INC     DPTR
+               DJNZ    B,TWLD
+TWLD1          CLR     VANGYOZ          ; EZZEL JELEZZUK, HOGY VAN GYOZTES
+               MOV     JNUM,#1
+
+TLDK5          CBYTE   CSAPAT,JNUM      ; CIKLUS KEZDETE
+               MOV     AREG,A           ; AREG-BEN A CSAPAT (13,24,57,68)
+               SWAP    A
+               MOV     JATAKT,A         ; JATAKT-BA AZ EGYIK JATEKOS
+               ANL     JATAKT,#0FH      ; ALSO NEGYES MARAD
+               LCALL   LED21            ; MEGNEZZUK, HOGY MEGVAN-E MINDEN LED
+               JB      CRGYOZ,TLDK1     ; HA MEGVAN, UGRAS
+               JB      MINDKI,TLDK2     ; HA MINDENKINEK KI KELL MENNI, NEM JO
+               SJMP    TLDK7
+TLDK1          JNB     MINDKI,TLDK6     ; HA ELEG EGY IS MAR MEGVAN, UGRAS
+TLDK7          MOV     JATAKT,AREG
+               ANL     JATAKT,#0FH
+               LCALL   LED21            ; A MASIK JATEKOSRA IS MEGNEZZUK
+               JB      CRGYOZ,TLDK6     ; MINDKET JATEKOSNAK MEGVAN A 21 LED
+TLDK2       ;  CBYTE   MELYTEAM,JNUM
+            ;  MOV     AREG,A
+               XBYTEKI TEAMWIN,JNUM,#1  ; NINCS MEG, "NEM NYERT" BEJEGYZES
+           ;   MOV     A,JNUM
+           ;   LCALL   KIIRAS8
+               SJMP    TLDK6A
+TLDK6          SETB    VANGYOZ
+TLDK6A         INC     JNUM
+               MOV     A,MAXJAT         ; MEGHALADJA A MAXJAT-OT ?
+               INC     A
+               CJNE    A,JNUM,TLDK5     ; MEG TART A CIKLUS, VISSZA
+               CLR     CRGYOZ
+               POP     B
+               POP     JATAKT
+               POP     JNUM
+               RET
+
+; KRIKETT JATEKBAN A GYOZTES SZEMELYET MEGJELOLI
+; BEJOVO ADAT: JATAKT - A GYOZTESKENT JELOLENDO JATEKOS SZAMA
+;>CRGYOZOTT
+CRGYOZOTT       JB      TEAM,CRG1       ; HA TEAM, UGRIK
+                MOV     DPTR,#WIN       ; TABLAZAT BEIRAS
+                MOV     A,JATAKT        ; AKT. JATEKOS
+                ADD     A,DPL           ; ELTOLAS
+                MOV     DPL,A
+                CLR     A               ; GYOZTESNEK 0-T IRUNK
+                MOVX    @DPTR,A
+CRG1            RET
+
+;>GYOZOTT01
+GYOZOTT01       MOV     DPTR,#WIN       ; TABLAZAT BEIRAS
+                MOV     A,JATAKT        ; AKT. JATEKOS
+                ADD     A,DPL           ; ELTOLAS
+                MOV     DPL,A
+                CLR     A               ; GYOZTESNEK 0-T IRUNK
+                MOVX    @DPTR,A
+                RET
+
+; MINDEN JATEKOSRA MEGNEZI, HOGY MEGVAN-E A 21 LEDJE-?
+; HA NINCS, A WIN TABLABA 1-EST IR A JATEKOSHOZ
+; KIMENO ADAT: WIN -TABLA A MEGFELELO HELYEN NEM NYERT BEJEGYZESSEL (=1)
+;>LEDKERES
+LEDKERES        PUSH    JATAKT
+                PUSH    JNUM
+                CLR     VAN_LED21       ; UGY VESSZUK, HOGY NINCS
+                MOV     JNUM,#1     ; MINDEN JATEKOSRA MEGNEZZUK A LEDEKET
+LDK1            MOV     JATAKT,JNUM
+                LCALL   LED21
+                JB      CRGYOZ,LDK2A    ; HA MEGVAN A 21 LED, UGRIK
+                XBYTEKI  WIN,JNUM,#1
+                SJMP     LDK2
+LDK2A           SETB     VAN_LED21      ; VALAKI MAR KIMENT
+LDK2            LCALL   JATVALT         ; VALTAS A KOVETKEZO JATEKOSRA
+                MOV     A,JNUM
+                CJNE    A,#1,LDK1       ; HA MEG NEM ERT KORBE, VISSZA
+                CLR     CRGYOZ          ; KIMENETNEL NE LEGYEN CRGYOZ
+                POP     JNUM
+                POP     JATAKT
+                RET
+
+; MINDEN DOBAS UTAN MEGNEZI, VAN-E AZONNALI NYERES
+
+WIN_JAT   AJMP   WN_NORMAL          ; 1.  HI SCORE
+          AJMP   WN_NORMAL          ; 2.  LOW SCORE
+          AJMP   WN_NORMAL         ; 3.  301
+          AJMP   WN_NORMAL         ; 4.  501
+          AJMP   WN_NORMAL         ; 5.  701
+          AJMP   WN_NORMAL         ; 6.  901
+          AJMP   WN_NORMAL         ; 7.  SHANGHAI
+          AJMP   WN_NORMAL          ; 8.  PUB GAME
+          AJMP   WN_NOSCORE         ; 9.  CRICKET21
+          AJMP   WN_CR_HIGH         ; 10. CRICKET
+          AJMP   WN_CR_LOW          ; 11. CRICKET THROAT
+          AJMP   WN_NORMAL          ; 12. FIVES
+          AJMP   WN_CR_LOW          ; 13. BLO_CRICKET
+          AJMP   WN_NORMAL          ; 14. HALVES
+          AJMP   WN_CR_HIGH         ; 15. ABS_CRICKET
+          AJMP   WN_NORMAL          ; 16. TRENING
+          AJMP   WN_NORMAL          ; 17. 301 PARCHESSI
+          AJMP   WN_NORMAL          ; 18. HARD_SCORE
+          AJMP   WN_NORMAL          ; 19. FLASH_GAME
+          AJMP   WN_NOSCORE         ; 20. PAIR_CRIC
+          AJMP   WN_NORMAL          ; 21. REDMASTER
+          AJMP   WN_NORMAL          ; 22. BULLMASTER
+          AJMP   WN_NORMAL          ; 23. TRENING UP
+
+;>MOST_GYOZ
+;MOST_GYOZ
+;CRKIGYOZ        CLR    CRGYOZ             ; NEM GYOZOTT SENKI
+             ;  MOV    DPTR,#JAT_SORSZ
+             ;   MOV    A,BREG
+             ;   MOVX   @DPTR,A            ; KIMENTJUK A JATEK SORSZAMAT
+             ;   CLR    LOW_WIN            ; ALACSONY PONTSZAM NYER-E?
+             ;   MOV    A,BREG             ;
+             ;   DEC    A
+             ;   MOV    DPTR,#WINLOW       ; BEOLVASSUK, HOGY KIS VAGY NAGY
+             ;   MOVC   A,@A+DPTR          ;   PONTSZAM FOG NYERNI
+             ;   JZ     JCT5
+             ;   SETB   LOW_WIN            ; LOW_WIN BIT BEALLITASA
+                MOV    A,BREG             ; JATEK SZAMANAK BETOLTESE
+                DEC     A                 ; NULLATOL KEZD A TABLAZAT
+                RL      A                 ; SZORZAS KETTOVEL
+                MOV     DPTR,#WIN_JAT     ; TABLAZAT KEZDOCIME
+                JMP     @A+DPTR           ; UGRAS A CIMRE
+
+WN_NORMAL                               ; IDE UGRIK A LEGTOBB RUTIN
+WN_END          RET
+
+WN_NOSCORE      LCALL   LED21           ; NOSCORE - CSAK A LED SZAMIT
+                AJMP    WN_END          ; KILEPHET, CRGYOZ BEALLITVA
+
+WN_CR_HIGH      CLR     LOW_WIN         ; NAGYOBB PONTSZAM NYER
+                AJMP    CR_KIGYOZ
+
+WN_CR_LOW       SETB    LOW_WIN         ; KISEBB PONTSZAM NYER
+          ;     AJMP    CR_KIGYOZ
+
+CR_KIGYOZ       JB      TEAM,CGZ10      ; A TEAM RUTIN MASHOL VAN
+                LCALL   LEDKERES        ; KIMENT VALAKI ?
+                JB      VAN_LED21,WINC1 ; IGEN, UGRAS
+                AJMP    WN_END          ; NEM, KOR NEZNI TOVABB
+
+WINC1       ;   CLR     LOW_WIN         ; NAGYOBB PONTSZAM NYER
+                CLR     CRGYOZ          ; ALAPHELYZETBEN NINCS GYOZTES
+                LCALL   WINKERES
+                MOV     JNUM,#1         ; CIKLUS SZAMLALO
+WINC2           MOV     DPTR,#WIN       ; MEGNEZI, VAN-E GYOZTES
+                MOV     A,JNUM          ; ELTOLAS
+                ADD     A,DPL
+                MOV     DPL,A
+                MOVX    A,@DPTR         ; ADAT BEOLVASAS
+                JNZ     WNC3            ; NEM GYOZOTT, UGRIK
+                SETB    CRGYOZ          ; VAN EGY GYOZTES
+WNC3            LCALL   JATVALT
+                MOV     A,JNUM
+                CJNE    A,#1,WINC2    ; VISSZA A KOVETKEZO JATEKOSRA
+                AJMP    WN_END        ; CRGYOZ BEALLITVA
+
+; MEGALLAPITJA, HOGY KRIKETT JATEKBAN GYOZOTT-E VALAKI?
+;>CRKIGYOZ
+CRKIGYOZ        CLR     CRGYOZ        ; GYOZELEM JELZO BIT TOROLVE
+                JB      TEAM,CGZ10
+                LCALL   LED21         ; AKT.JATEKOSNAK KESZ VAN-E MINDEN LED?
+                JB      CRGYOZ,CGZ17
+                RET
+CGZ17           JNB     NOSCORE,CGZ3  ; HA NEM NOSCORE, UGRIK
+                RET                   ; ITT CSAK A LED SZAMIT
+CGZ3            CLR     LOW_WIN       ; NEM AZ ALACSONY PONTSZAM NYER
+                JNB     CUTTH,CGZ2    ; CUT-THROAT-NAL A KISEBB NYER
+                SETB    LOW_WIN
+CGZ2            LCALL   WINKERES      ; PONTSZAMOK ALAPJAN KERESES
+                LCALL   LEDKERES
+                MOV     JNUM,#1         ; CIKLUS SZAMLALO
+CGZ7            XRBYTE   WIN,JNUM
+             ;  MOV     DPTR,#WIN
+             ;  MOVX    A,@DPTR      ; MINDEN JATEKOS JELOLESET BEOLVASSUK
+                JZ      CGZ6         ; HA VAN BENNE NYERO, UGRIK
+                LCALL   JATVALT
+                MOV     A,JNUM
+                CJNE    A,#1,CGZ7     ; CIKLUS VEGE
+                CLR     CRGYOZ        ; NINCS GYOZTES
+            ;   POP     JNUM
+            ;   POP     JATAKT
+                RET
+
+CGZ6            SETB    CRGYOZ
+            ;   POP     JNUM
+            ;   POP     JATAKT
+                RET
+
+; TEAM ESETEN ITT VIZSGALJUK, HOGY GYOZOTT-E VALAKI
+CGZ10           JNB     NOSCORE,CGZ13   ; HA NEM NOSCORE, UGRIK
+                LCALL   TEAMLEDKERES
+                JNB     VANGYOZ,CGZ21
+                SETB    CRGYOZ          ; LEDEK ALAPJAN GYOZHET A CSAPAT
+CGZ21           RET                     ; ITT CSAK A LED SZAMIT
+
+CGZ13           CLR     LOW_WIN         ; NEM AZ ALACSONY PONTSZAM NYER
+                JNB     CUTTH,CGZ12     ; CUT-THROAT-NAL A KISEBB NYER
+                SETB    LOW_WIN
+CGZ12           LCALL   TEAMWINKERES    ; PONTSZAMOK ALAPJAN KERESES
+                LCALL   TEAMLEDKERES
+                CBYTE   MELYTEAM,JATAKT ; MEGNEZZUK, JATAKT MELYIK CSAPATBAN
+                MOV     AREG,A          ; ATTOLTES AREG-BE
+                XRBYTE   TEAMWIN,AREG
+                JZ      CGZ16           ; HA GYOZOTT, UGRAS
+                CLR     CRGYOZ
+                CLR     VANGYOZ
+                RET
+
+CGZ16           SETB    CRGYOZ
+                SETB    VANGYOZ
+                RET
+
+;>CR_VANGYOZ
+CR_VANGYOZ      JB      TEAM,CRZ10      ; TEAM ESETEN UGRAS
+                PUSH    JNUM            ;   CLR     LOW_WIN
+                CLR     VANGYOZ
+                CLR     GYOZOTT
+                LCALL   WINNER_INIT
+                JB      NOSCORE,CR_V3   ; HA NOSCORE, CSAK A LED SZAMIT
+                LCALL   WINKERES        ; NEM NYERO PONTSZAMOK MEGJELOLESE
+CR_V3           LCALL   LEDKERES        ; NEM NYERO LED ALLASOK MEGJELOLESE
+                MOV     JNUM,#1         ; CIKLUS SZAMLALO
+CR_V2           MOV     DPTR,#WIN       ; GYOZELEM TABLAT VIZSGALJUK
+                MOV     A,DPL
+                ADD     A,JNUM          ; ELTOLAS HOZZAADVA
+                MOV     DPL,A
+                MOVX    A,@DPTR         ; ADAT BE
+                JNZ     CR_V1           ; NULLA ESETEN VAN GYOZTES
+                SETB    VANGYOZ
+                PUSH    B
+                MOV     B,#B_YESS
+                LCALL   B_PLAYER
+                LCALL    WAIT_COIN_500
+                POP     B
+CR_V1           LCALL   JATVALT         ; JNUM NOVELESE
+                MOV     A,JNUM          ;
+                CJNE    A,#1,CR_V2      ; CIKLUS VEGE
+                POP     JNUM
+                RET
+
+; TEAM ESETEN ITT VIZSGALJUK, HOGY GYOZOTT-E VALAKI
+CRZ10           JNB     NOSCORE,CRZ13   ; HA NEM NOSCORE, UGRIK
+                LCALL   TEAMLEDKERES
+                JNB     VANGYOZ,CRZ21
+                SETB    CRGYOZ          ; LEDEK ALAPJAN GYOZHET A CSAPAT
+CRZ21           RET                     ; ITT CSAK A LED SZAMIT
+
+CRZ13           CLR     LOW_WIN         ; NEM AZ ALACSONY PONTSZAM NYER
+                JNB     CUTTH,CRZ12     ; CUT-THROAT-NAL A KISEBB NYER
+                SETB    LOW_WIN
+CRZ12           LCALL   TEAMWINKERES    ; PONTSZAMOK ALAPJAN KERESES
+                LCALL   TEAMLEDKERES
+                CBYTE   MELYTEAM,JATAKT ; MEGNEZZUK, JATAKT MELYIK CSAPATBAN
+                MOV     AREG,A          ; ATTOLTES AREG-BE
+                XRBYTE   TEAMWIN,AREG
+                JZ      CRZ16           ; HA GYOZOTT, UGRAS
+                CLR     CRGYOZ
+                CLR     VANGYOZ
+                RET
+
+CRZ16           SETB    CRGYOZ
+                SETB    VANGYOZ
+                RET
+
+
+; 01-ES JATEKOKNAL MEGVIZSGALJA, HOGY MEGNYERTE-E AZ AKT. JATEKOS
+; A JATSZMAT.
+; BEJOVO ADAT:  JATAKT - AKT. JATEKOS SZAMA
+; KIMENO ADAT:  GYOZOTT - =1, HA A JATEKOS MAR GYOZOTT
+; KIMENO ADAT:  VANGYOZ - =1, HA EQUAL VAN, DE VAN EGY GYOZTES
+;>GYOZ01
+GYOZ01       CLR       GYOZOTT           ; A GYOZOTT BIT TORLESE
+             JB        TEAM,G0Z5         ; HA TEAM, MEGNEZI A PARTNERT IS
+             JB        EQUAL,G0Z2        ; EQUAL, MEG NEM GYOZHET
+G0Z7         SETB      GYOZOTT           ; EGYEBKENT GYOZHET
+             MOV       B,#B_YESS
+             LCALL     B_PLAYER
+             LCALL    WAIT_COIN_500
+             RET                         ; MAR GYOZOTT, KILEPES
+
+G0Z1         JNB       TEAM,G0Z6          ; HA NINCS TEAM, NEM IS NEZI
+             CBYTE     TEAMTARS,JATAKT    ; CSAPATTARS SZAMANAK BEHOZASA
+             PUSH      JATAKT             ; AKT. JATEKOS ELMENTESE
+             MOV       JATAKT,A           ; JATAKT-BA A PARTNER
+             LCALL     PSZAMBE            ; PARTNER PONTSZAMA
+             MOV       A,TIZEGY
+             ORL       A,SZAZAS           ; MEGNEZZUK, NULLA-E
+             POP       JATAKT             ; VISSZATOLTES
+             JZ        G0Z5               ; HA 0, GYOZHET A CSAPAT
+G0Z6         RET                          ; NEM GYOZOTT, KILEPES
+
+G0Z5         LCALL     TEAMWINKERES       ; CSAPATGYOZELMET KERES
+             LCALL     MASNEMNYER
+             CBYTE     MELYTEAM,JATAKT    ; MELYIK CSAPATBAN VAN AZ AKT.JAT?
+             MOV       AREG,A             ; AREG-BE A CSAPAT SZAMA
+             XRBYTE    TEAMWIN,AREG       ; BEHOZZUK A CSAPAT BEJEGYZESET
+             JZ        G0Z7               ; HA GYOZHET, UGRAS VISSZA
+             RET                          ; NEM GYOZOTT, KILEPES
+
+G0Z2         SETB      ELVESZNYIL       ; ELVEHETI A TOBBI NYILAT
+             MOV       A,NRDART         ; SZORZAS: NRDART*NYILSZAM
+             MOV       B,NYILSZAM       ; ENNYI NYILBOL KELLETT KIMENNI
+             MUL       AB
+             MOV       AREG,A
+             CBYTE     NYILSORSZ,AREG   ; TABLAZATBOL A KIMENO NYILSORSZAM
+             MOV       AREG,A           ;
+             MOV       DPTR,#GNYIL      ; KIIRATJUK A JATEKOSHOZ
+             MOV       A,DPL
+             ADD       A,JATAKT          ; AKT. JATEKOS ELTOLASA
+             MOV       DPL,A
+             MOV       A,AREG            ; NYILAK SZAMA ATTOLTESE
+             MOVX      @DPTR,A           ; NYILAK SZAMA KIIRASA
+             MOV       DPTR,#SETNYIL    ; ADANDO NYILAK VALTOZOJA
+             MOVX      @DPTR,A          ; KIIRATAS
+             SETB      GYOZEQ            ; JELEZZUK, HOGY VAN GYOZTES
+             SETB      VANGYOZ           ; "VAN EGY GYOZTES" MEGJELOLES
+G0Z2X        RET
+
+
+; A NYILSZAM ES AZ NRDART ALAPJAN MEGADJA, HANY NYILBOL MENT KI
+NYILSORSZ    DB       0,  0,  0,  1,  1,  0,  2, 0, 0, 3
+
+; A GYOZTES JATEKOS FELETTI LAMPAKAT VILLOGTATJA
+; HA A FAZIS PAROS, ELOLTJA, HA PARTALAN, KIGYUJTJA
+;>LAMPA_GYOZ
+LAMPA_GYOZ     PUSH   NUM
+               PUSH   SNUM
+               PUSH   SEG
+               PUSH   JNUM
+               MOV    A,NUM             ; HA NUM=0, UGRAS
+               JZ     LAGY1
+               KILAM  IZVALTO
+               MOV    NUM,#1                    ; KIALSZIK
+               MOV    SEG,#0                    ; SPCIM
+               LCALL  LAMPA
+               MOV    SEG,#1                    ; NRCIM
+               LCALL  LAMPA
+               MOV    SEG,#2                    ; TCRCIM
+               LCALL  LAMPA
+               MOV    NUM,#0AAH
+               MOV    SNUM,#0AAH
+               LCALL  PONTSZAM
+               MOV    NUM,#0
+               LCALL  TOMBLED           ; LED TOMB ELOLTAS
+               SJMP   LAGY2
+LAGY1          BELAM  IZVALTO
+               MOV    NUM,#0                    ; KIGYULLAD
+               MOV    SEG,#0                    ; SPCIM
+               LCALL  LAMPA
+               MOV    SEG,#1                    ; NRCIM
+               LCALL  LAMPA
+               MOV    SEG,#2                    ; TCRCIM
+               LCALL  LAMPA
+               MOV    NUM,#3
+               LCALL  TOMBLED           ; LED TOMB ELOLTAS
+LAGY2          POP    JNUM
+               POP    SEG
+               POP    SNUM
+               POP    NUM
+               RET
+
+; MEGHIVJA A LAMPAVILLOGTATAST MINDEN GYOZTES JATEKOSRA
+;>GYOZ_LAMPA
+GYOZ_LAMPA     PUSH     NUM
+               PUSH     JNUM
+               LCALL    PONTKIIR
+               XBYTE    LAM_FAZIS,#0          ; LAMPA FAZISMUTATO BEOLVASAS
+               JZ       LGYZ1                 ; HA NULLA,KIGYUJTUNK
+               XBYTEKI  LAM_FAZIS,#0,#0       ; KOVETKEZO ALLAPOT
+               MOV      NUM,#1                ; ELALUDNAK A LAMPAK
+               SJMP     LAGYZ2
+LGYZ1          XBYTEKI  LAM_FAZIS,#0,#1       ; KOVETKEZO ALLAPOT
+               MOV      NUM,#0                ; KIGYULLADNAK A LAMPAK
+LAGYZ2         MOV     JNUM,#1                ; 1. JATEKOSNAL KEZDUNK
+LGYZ2          XRBYTE   WIN,JNUM
+               JNZ     LGYZ3                ; HA NEM GYOZTES, UGRIK
+               LCALL   LAMPA_GYOZ           ; MEGHIVJUK A LAMPA RUTINT
+LGYZ3          LCALL   JATVALT
+               MOV     A,JNUM
+               CJNE    A,#1,LGYZ2           ; HA MEG NEM ERT KORBE, VISSZA
+               POP     JNUM
+               POP     NUM
+               RET
+
+; CSOPORT JATEKNAL GYOZTES CSAPAT LAMPA VILLOGTATAS
+; BEJOVO ADAT: TEAMWIN -BEN 0 BEJEGYZES A GYOZTESEKNEL
+;>TGYOZ_LAMPA
+TGYOZ_LAMPA    PUSH     NUM
+               PUSH     JNUM
+               PUSH     DREG
+               LCALL    PONTKIIR              ; KIIRATJA A PONTSZAMOKAT
+               XBYTE    LAM_FAZIS,#0          ; LAMPA FAZISMUTATO BEOLVASAS
+               JZ       TLGYZ1
+               XBYTEKI  LAM_FAZIS,#0,#0       ; KOVETKEZO ALLAPOT
+               MOV      NUM,#1                ; ELALUDNAK A LAMPAK
+               SJMP     TLGYZ2                ; UGRAS A KEZDESRE
+TLGYZ1         XBYTEKI  LAM_FAZIS,#0,#1       ; KOVETKEZO ALLAPOT
+               MOV      NUM,#0                ; KIGYULLADNAK A LAMPAK
+TLGYZ2         MOV     DREG,#1                ; ELSO CSAPAT
+TLGYZ6         XRBYTE   TEAMWIN,DREG
+               JNZ     TLGYZ4                ; HA NEM NULLA, UGRAS
+               CBYTE   CSAPAT,DREG
+               MOV     AREG,A              ; ELMENTES
+               SWAP    A                   ; BITNEGYES CSERE
+               MOV     JNUM,A
+               ANL     JNUM,#0FH           ; EGYIK JATEKOS
+               LCALL   LAMPA_GYOZ
+               MOV     JNUM,AREG
+               ANL     JNUM,#0FH           ; MASIK JATEKOS
+               LCALL   LAMPA_GYOZ
+TLGYZ4         INC     DREG                ; CIKLUS VEGE
+               MOV     A,MAXJAT
+               ADD     A,#1
+               CJNE    A,DREG,TLGYZ6       ; MEG NEM, UGRAS VISSZA
+               POP     DREG
+               POP     JNUM               ; JNUM-T UJRA ELOVESZ
+               POP     NUM
+               RET
+
+; EGYENI VAGY CSAPATJATEKTOL FUGGOEN A MEGFELELO VILLOGTATO RUTINT HIVJA
+;>GYOZ_FENY
+GYOZ_FENY     JB      TEAM,GYF1
+              LCALL   GYOZ_LAMPA
+              SJMP    GYF4
+GYF1          LCALL   TGYOZ_LAMPA
+GYF4          LCALL   DARTKIJ
+              RET
+
+SORS_TIME      EQU      5      ; FEL SEC
+
+; A GYOZTESKENT MEGJELOLT JATEKOS LAMPAIT KIGYUJTJA
+;>GYOZTES
+GYOZTES
+            MOV    DPTR,#ST_FLAG        ; FLAG CIME
+            CLR    A                    ; 0-T IRATUNK, NINCS FLAG
+            MOVX   @DPTR,A              ; NEM KELL MEGADOTT HELYRE MENNI
+            CLR     VAN_REP                 ; ALAPHELYZETBEN NINCS REPLAY
+            SETB    REP_MEGINT
+            MOV     A,#IZREPLAY                    ; REPLAY GOMB VILAGITSON
+            LCALL   IZZOK_BE
+            MOV     DPTR,#REP_LEHET
+            MOV     A,#100
+            MOVX    @DPTR,A
+
+            PUSH    BREG                ; A JATEK SZAMA KELL KESOBBRE
+            LCALL   LAMPALEC_OFF
+            MOV     JNUM,JATAKT
+            FLAMKI
+            MOV     JNUM,MAXJAT
+            FLAMKI                      ; UTOLSO JATEKOS LAMPAJAT KIKAPCS.
+            ADNYIL  0                   ; ELVESZI A MARADEK NYILAKAT
+            LCALL     KILAMPA
+            LCALL  DARTKIJ
+
+       ;     MOV    B,#B_YESS
+       ;     LCALL  B_PLAYER
+       ;     LCALL  TIM500MS
+
+            SETB      P_VEGE              ; JELEZZUK, HOGY VEGE VAN
+            CLR       P_JATEK           ; JATEKFAZIS TOROLVE
+            CLR       VANHANG
+            JNB       VANHANG,GYZT2A   ; HA NEM SZOL SEMMI, UGRAS
+            LCALL     TIM10MS
+            CLR       DOUBIN
+            CLR       DOUBOUT
+            CLR       MASTOUT
+            LCALL     PLUSZ_KOR         ; EREDETKI KORSZAM VISSZAALLITAS
+            LCALL     RES_PD
+            CLR       VANHANG         ; HANG LEALLITVA
+GYZT2A    ;  XBYTEKI   NYIL_FAZIS,#0,#0
+          ;  XBYTEKI   HANG_FAZIS,#0,#0
+            XBYTEKI   LAM_FAZIS,#0,#0   ; FAZIS VALTOZOK INICIALIZASA
+            CLR       TILT              ; A ZENET NEM KULDI EL GOMB
+
+            JB        CHAMP,WWZE1X      ; VERSENYEN CSAK EFFEKT
+            XBYTE     WIN_ZENE,#0       ; MEGNEZZUK, MELYIK ZENE MENJEN
+            JNZ       WZE0              ; 0. ZENE -
+WWZE1X      PUSH      DREG              ; HA NULLA, HANGEFFEKT KELL
+            MOV       DREG,#4           ; 4-SZER ISMETELJUK
+            LCALL     GYOZ_FENY         ; FENYEK BE
+WWZE1       MOV       A,#H_GYOZ0
+            LCALL     H_EFFEKT
+            LCALL     GYOZ_FENY         ; FENYEK KI
+            DELAY     5                 ; FEL SEC SZUNET
+WWZE3       JB        FLAGTIM,WWZE2     ; HA LETELT AZ IDO, UGRAS
+            LCALL     REP_VALKEY
+            JZ        WWZE3
+            POP       DREG
+            SJMP      WZE2
+            SJMP      WWZE3
+WWZE2       LCALL     GYOZ_FENY         ; FENYEK UJRA BE
+            DJNZ      DREG,WWZE1
+            POP       DREG
+            SJMP      WZE2              ; UGRAS A ZENE UTANRA
+WZE0        CJNE      A,#1,WZE1         ; NEM AZ 1.
+            LCALL    P_TENG
+            JB       TILT,WZE2
+            LCALL   P_TENG
+            SJMP    WZE2               ; UGRAS A ZENE UTANRA
+WZE1        CJNE      A,#2,WZE3         ; NEM AZ 2.
+            LCALL   P_TOROK               ; CSAK A ZENET HIVJUK MEG
+            SJMP    WZE2               ; UGRAS A ZENE UTANRA
+WZE3        CJNE      A,#3,WZE4         ; NEM AZ 3.
+            LCALL   P_OLDBOYS
+            SJMP    WZE2               ; UGRAS A ZENE UTANRA
+WZE4        CJNE      A,#4,WZE5         ; NEM AZ 4.
+            LCALL   P_GRANDFA
+            SJMP    WZE2               ; UGRAS A ZENE UTANRA
+WZE5        CJNE      A,#5,WZE2A       ; NEM AZ 5.
+            LCALL     P_LANGS
+WZE2A       CJNE      A,#6,WZE2
+            XBYTE     ZENE_SOR,#0       ; ZENEK KORBEJARNAK
+            ADD       A,#1              ; SORSZAM NOVELESE
+            CJNE      A,#6,WZE2B        ; HA MEG NEM 6, UGRAS
+            MOV       A,#1              ; UJRA AZ ELSO ZENE
+WZE2B       MOV       DPTR,#ZENE_SOR
+            MOVX      @DPTR,A           ; ELMENTJUK KESOBBRE
+            PUSH      A
+            PUSH     NUM
+            MOV      NUM,DPL         ; CIM
+            POP      NUM
+            POP      A
+            SJMP     WZE0              ; MEGHIVJA A MEGFELELO SORSZAMU ZENET
+
+WZE2        JB       VAN_REP,WZE2D     ; HA REPLAY, KILEP
+            JNB      SKIP,WZE2X        ; HA NEM SKIP, UGRAS
+WZE2D       POP      BREG
+            LJMP     WSO2
+WZE2X       XBYTEKI   LAM_FAZIS,#0,#0   ; LAPAK GYUJTVA MARADJANAK
+            LCALL     GYOZ_FENY
+            PUSH      JNUM
+            MOV       JNUM,#1
+WZE6        MOV       NUM,#0
+            LCALL     TOMBLED
+            LCALL     JATVALT
+            MOV       A,JNUM
+            CJNE      A,#1,WZE6
+            LCALL  DARTKIJ
+           POP       JNUM
+           POP       BREG
+           MOV       A,BREG
+           CJNE      A,#GAME_PUB,WSO0A      ; HA NEM PUB_GAME, UGRAS
+           MOV       B,#B_LETSGO
+           LCALL     B_PLAYER
+WSO0A      MOV       KESLEL,#10
+           LCALL     WAIT_TIME
+           JNB       SKIP,WSO0
+           LJMP      WSO2
+ ; MEGNEZZUK, KELL-E SORSOLNI
+WSO0        PUSH    BREG                ; JATEKSORSZAM MENTESE
+            JB        CHAMP,WSO1        ; VERSENYEN NINCS SORSOLAS
+            XBYTE     SORS_JAT,#0       ; MEGNEZZUK, VAN-E SORSOLAS
+            JZ        WSO1              ; NINCS, UGRAS
+            MOV       A,#18H            ; DRA - DRAWING
+            PLAYER    1,1               ; FELSO KIJELZO KOZEPERE
+            LCALL     SETUPJAT
+            DELAY     SORS_TIME
+WSO3        JB        FLAGTIM,WSO4
+            LCALL     COIN
+            LCALL     VALKEY
+            JZ        WSO3              ;
+            SJMP      WSO1
+WSO4        MOV     A,#H_JODOB
+            LCALL   H_EFFEKT
+            DELAY     SORS_TIME
+WSO5        JB        FLAGTIM,WSO6
+            LCALL     COIN
+            LCALL     SKIPKEY
+            JZ        WSO5              ;
+            JNB       SKIP,WSO1         ; HA NEM SKIP, A KOV. LEPES
+            POP       BREG
+            SJMP      WSO2              ;
+WSO6        MOV       A,#H_JODOB
+            LCALL     H_EFFEKT
+            DELAY     SORS_TIME
+WSO7        JB        FLAGTIM,WSO8
+            LCALL     COIN
+            LCALL     SKIPKEY
+            JZ        WSO7              ;
+            JNB       SKIP,WSO1         ; HA NEM SKIP, A KOV. LEPES
+            POP       BREG
+            SJMP      WSO2              ;
+WSO8        LCALL    W_SORSOL          ; SORSOLASI RUTIN
+            JB       LEPHET,WSO1       ; HA TOVABBLEPHET, TOVABBLEP
+            MOV      KESLEL,#10        ; IDOZITES
+            LCALL    WAIT_VALTO
+
+; STATISZTIKAI MEGJELENITESEK
+WSO1        POP      BREG
+            JNB      CHAMP,WSO1X
+            XBYTE  CHAMP_SET,#0       ; MEGNEZZUK A VERSENY ALLAPOTOT
+            CJNE    A,#3,WSO2         ; HA NEM 3, NINCS STATISZTIKA
+            SJMP    WSO1Y             ; EGYEBKENT MUTASSA
+WSO1X       XBYTE   STAT_EN,#0          ; MEGNEZZUK, ENGEDELYEZVE VAN-E
+            JZ      WSO2                ; NINCS, UGRAS
+WSO1Y       LCALL   STAT_SZAM           ; STATISZTIKA SZAMITAS
+            LCALL   STAT_MUTAT          ; MEGJELENITES
+; UGRAS AZ ELEJERE
+WSO2        LCALL   LAMSOTET
+            LCALL   WAIT_COIN_500
+            RET                         ; UGRAS VISSZA AZ ELEJERE
+
+WSO22       MOV      KESLEL,#10        ; IDOZITES
+            LCALL     WAIT_VALTO
+            SJMP      WSO2
+
+; STATISZTIKAI SZAMITASOK MEGJELENITESE
+;>STAT_SZAM
+STAT_SZAM   MOV       DPTR,#JAT_SORSZ
+            MOVX      A,@DPTR           ; A-BA A JATEK SORSZAM
+            MOV       DPTR,#T_STAT
+            MOVC      A,@A+DPTR         ; MILYEN FAJTA KELL ?
+            JZ        STSZ3             ; NEM KELL SEMMI
+            CJNE      A,#1,STSZ2        ; TALALATI PONTOSSAGNAL UGRAS
+            MOV       A,AKTKOR          ; A-BA A KOROK SZAMA
+            LCALL     BCD2BIN
+            LCALL     PONT_P_ROUND      ; KORATLAGOT SZAMITUNK
+            MOV       A,NRDART          ; AZ AKT. NYIL SZAMA
+;           CJNE      A,#4,STSZ6        ; HA NEM 4, NEM KOR VEGE VAN
+            JNZ       STSZ6
+            MOV       A,AKTKOR
+            LCALL     BCD2BIN
+            MOV       B,#3
+            MUL       AB
+            SJMP      STSZ7
+STSZ6       MOV       A,AKTKOR         ; A KORSZAMOT EGGYEL CSOKKENTJUK
+            LCALL     BCD2BIN
+            DEC       A
+            MOV       B,#3
+            MUL       AB
+            ADD       A,NRDART         ; ES HOZZAADJUK A JELENLEGI NYILSZAMOT
+STSZ7       LCALL     PONT_P_DART       ; NYILATLAGOT IS SZAMOLUNK
+            SJMP      STSZ3
+STSZ2       MOV       A,NRDART          ; AZ AKT. NYIL SZAMA
+;           CJNE      A,#4,STSZ4        ; HA NEM 4, NEM KOR VEGE VAN
+            JNZ       STSZ4
+            MOV       A,AKTKOR
+            LCALL     BCD2BIN
+            MOV       B,#3
+            MUL       AB                ; OSSZES NYILSZAMOT SZAMIT
+            SJMP      STSZ5
+STSZ4       MOV       A,AKTKOR         ; A KORSZAMOT EGGYEL CSOKKENTJUK
+            LCALL     BCD2BIN          ; BINARISRA ALAKITAS
+            DEC       A
+            MOV       B,#3
+            MUL       AB
+            ADD       A,NRDART         ; ES HOZZAADJUK A JELENLEGI NYILSZAMOT
+STSZ5   ;    LCALL     KIIRAS8
+            LCALL   HIT_PERCENT
+STSZ3       RET                        ; STATISZTIKA KISZAMITVA
+
+; ADDIG KERING ES VILLOGTAT, AMIG A VALTOT MEG NEM NYOMJUK
+;>WAIT_VALTO
+WAIT_VALTO    PUSH    AREG
+              MOV     AREG,#0            ; ITT FOGJUK AZ IDOT MERNI
+              SETB    SVILLOG               ; A VILLOGAS EGESSEL KEZD
+              KILAM   IZVALTO
+STM10         JNB     FLAGTIM,STM11         ; HA MEG NEM TELT LE, UGRIK
+              CPL     SVILLOG
+	      JB      SVILLOG,STM12	    ; OLTASRA UGRAS
+	      BELAM   IZVALTO
+              INC     AREG              ; IDOMERES NOVELESE
+              DELAY   VLTIME
+	      SJMP    STM11
+STM12	      KILAM   IZVALTO           ; LEPTETOGOMB LAMPA KIKAPCS
+	      DELAY   VLTIME            ; VILLOGAS INICIALIZALAS
+STM11         MOV     A,AREG
+              CJNE    A,KESLEL,STM13      ; HA NEM ERTE EL, ME, LEP KI
+              SJMP    STM14
+STM13         LCALL VANDOBAS
+              JNB   ROSSZDOB,STMD3      ; HA NINCS DOBAS, UGRIK
+              JB    CHAMP,STMD3
+              XBYTE SZUN_SZIR,#0
+              JZ    STMD3               ; HA NEM KELL SZIRENAZNI, UGRIK
+              MOV     A,#H_SZIREN
+              LCALL   H_EFFEKT
+STMD3         LCALL COIN
+              LCALL   VALKEY            ; BILLENTYU VIZSGALAT
+              JZ      STM10
+STM14         KILAM   IZVALTO           ; VALTO LAMPA KIKAPCSOLAS
+              POP     AREG
+              RET
+
+;>WAIT_TIME
+WAIT_TIME     PUSH    AREG
+              MOV     AREG,#0            ; ITT FOGJUK AZ IDOT MERNI
+              SETB    SVILLOG               ; A VILLOGAS EGESSEL KEZD
+              KILAM   IZVALTO
+WTM10         JNB     FLAGTIM,WTM11         ; HA MEG NEM TELT LE, UGRIK
+              CPL     SVILLOG
+	      JB      SVILLOG,WTM12	    ; OLTASRA UGRAS
+	      BELAM   IZVALTO
+              INC     AREG              ; IDOMERES NOVELESE
+              DELAY   VLTIME
+	      SJMP    WTM11
+WTM12	      KILAM   IZVALTO           ; LEPTETOGOMB LAMPA KIKAPCS
+	      DELAY   VLTIME            ; VILLOGAS INICIALIZALAS
+WTM11         MOV     A,AREG
+              CJNE    A,KESLEL,WTM13      ; HA NEM ERTE EL, ME, LEP KI
+              SJMP    WTM14
+WTM13
+WTMD3         LCALL COIN
+              LCALL   SKIPKEY           ; BILLENTYU VIZSGALAT
+              JZ      WTM10
+WTM14         KILAM   IZVALTO           ; VALTO LAMPA KIKAPCSOLAS
+              POP     AREG
+              RET
+
+; MEGJELENITI A STATISZTIKAI ADATOKAT
+;>STAT_MUTAT
+STAT_MUTAT  MOV       DPTR,#JAT_SORSZ
+            MOVX      A,@DPTR
+            MOV       DPTR,#T_STAT
+            MOVC      A,@A+DPTR
+            JZ       STM7             ; NEM KELL SEMMILYEN
+            PUSH     A
+            LCALL    BUFINI         ;KEPERNYO TORLES
+              LCALL  DARTKIJ
+            POP      A
+            CJNE     A,#1,STM2        ; TALALATI ARANYNAL UGRAS
+            MOV      A,#1             ; PPR - KIIRATAS
+            LCALL    STAT_CIM
+            LCALL    PPR_DISP
+            LCALL    PONTKIIR
+              LCALL  DARTKIJ
+            MOV     A,#H_PENZKEY
+            LCALL   H_EFFEKT
+            MOV      B,#B_PPROUND
+            LCALL    B_PLAYER
+            MOV      KESLEL,#30        ; IDOZITES
+            LCALL    WAIT_VALTO
+            MOV      A,#2
+            LCALL    STAT_CIM
+            LCALL    PPD_DISP
+            LCALL    PONTKIIR
+              LCALL  DARTKIJ
+            MOV     A,#H_PENZKEY
+            LCALL   H_EFFEKT
+            MOV      B,#B_PPDART
+            LCALL    B_PLAYER
+            MOV      KESLEL,#30        ; IDOZITES
+            LCALL    WAIT_VALTO
+            SJMP     STM7               ; MEHET A VEGERE
+
+STM2        MOV      A,#3
+            LCALL    STAT_CIM
+            LCALL    PER_DISP
+            LCALL    PONTKIIR
+            LCALL  DARTKIJ
+            MOV     A,#H_PENZKEY
+            LCALL   H_EFFEKT
+            MOV      B,#B_GHITS
+            LCALL    B_PLAYER
+            MOV      KESLEL,#30        ; IDOZITES
+            LCALL    WAIT_VALTO
+
+STM7        LCALL    BUFINI
+            LCALL  DARTKIJ
+            RET
+
+;>WIN_SEND
+WIN_SEND
+            MOV     DPTR,#WIN
+            MOV     B,#8
+            INC     DPTR
+WISE2       MOVX    A,@DPTR
+  ;          PUSH    DPL
+  ;          PUSH    DPH
+  ;          LCALL   SER_DEBUG
+  ;          POP     DPH
+  ;          POP     DPL
+            INC     DPTR
+            DJNZ    B,WISE2
+            RET
+
+;WIN_DUM
+;            MOV     DPTR,#WIN
+;            MOV     B,#8
+;            INC     DPTR
+;DISE2       MOV     A,B
+;            MOVX    @DPTR,A
+;            INC     DPTR
+;            DJNZ    B,DISE2
+;            RET
+
+
+            DB  'ITTEN'
+SORS_TAB    DB  0, <WIN+1, <WIN+2, <WIN+3, <WIN+4
+            DB     <WIN+5, <WIN+6, <WIN+7, <WIN+8
+            DB  0, 0, 0, 0, 0, 0, 0, 0, 0
+            DB  0, 0, 0, 0, 0
+
+; SORSOLAS A JATEK UTAN
+;>W_SORSOL
+W_SORSOL  ;    LCALL    WIN_DUM
+               LCALL  WIN_SEND
+               PUSH   DREG               ; HASZNALT REGISZTEREK MENTESE
+               PUSH   AREG
+               PUSH   JNUM
+               PUSH   NUM
+               PUSH   SNUM
+               CLR    LEPHET
+               BELAM  IZVALTO
+               PUSH   AKTKOR
+               MOV    AKTKOR,#0AAH
+               LCALL  KORSZAM             ; KORSZAMLALO TORLESE
+               POP    AKTKOR
+               CLR    VANGYOZ             ; TOROLJUK A GYOZTEST JELZO BITET
+               MOV    DREG,#7             ; LEPESIDO ALAPERTEK
+               MOV    JNUM,#9             ; A KOZEPSO KIJELZORE MEGY
+               MOV    SNUM,#0AAH          ; SZAZAS NEM LESZ
+               MOV    NUM,#1              ; VELETLEN SZAM ALAPERTEK
+               MOV    CREG,#63            ; HAROM KOR GYORSAN LEMEHET
+WSR3           LCALL  PONTSZAM
+               LCALL  DARTKIJ             ; KIIRATAS
+               MOV     A,#H_SORSOL        ; HANGHATAS
+               LCALL   H_EFFEKT
+               LCALL  COIN
+               LCALL  VALKEY              ; VALTOBILL. VIZSGALAT
+            ;  MOV A,#0
+               JZ     WSR7
+               SETB   LEPHET
+               LJMP   WSR17               ; KILEPES
+WSR7           MOV    A,NUM
+               CJNE   A,#21H,WSR1         ; HA NEM ERTE EL A 21-ET, UGRAS
+               INC    DREG                ; LEPESIDO NOVELESE
+               INC    DREG                ; LEPESIDO NOVELESE
+               MOV    A,#1
+               SJMP   WSR2
+WSR1           ADD    A,#1
+               DA     A
+WSR2           MOV    NUM,A
+               DJNZ   CREG,WSR3           ; IDAIG MEGY A GYORSPORGETES
+               XBYTE  W_RAND,#0           ; BETOLTJUK A VELETLEN SZAMOT
+          ;    LCALL  SER_DEBUG
+               MOV    CREG,A
+               MOV    DREG,#20            ; LEPESIDO ALAPERTEK
+               MOV    NUM,#0              ; VELETLEN SZAM ALAPERTEK
+WSR6           MOV    A,NUM               ; NUM-OT FOGJUK KIIRATNI
+               ADD    A,#1                ; NOVELJUK IS
+               DA     A
+               MOV    NUM,A
+               LCALL  PONTSZAM
+               LCALL  DARTKIJ             ; KIIRATAS
+               MOV    A,#H_SORSOL         ; HANGHATAS
+               LCALL  H_EFFEKT
+               LCALL  COIN
+          ;    LCALL  VALKEY              ; VALTOBILL. VIZSGALAT
+               CLR    A
+               JZ     WSR8
+               SETB   LEPHET
+               LJMP   WSR17               ; HA MEGYNYOMTAK, KILEPES
+WSR8           INC    DREG
+               DJNZ   CREG,WSR6           ; A SZAM KISORSOLVA
+               LCALL  COIN
+               DELAY  5                   ; EGY FEL SEC MEGNEZNI
+          ;    LCALL  COIN
+          ;    DELAY  2
+               LCALL  COIN
+WSR18          JB     FLAGTIM,WSR19
+               LCALL  COIN
+               SJMP   WSR18
+
+WSR19          JB     TEAM,WSR10          ; HA TEAM, UGRIK
+               XBYTE  W_RAND,#0       ; NYERO PALYASZAM BEOLVASAS
+               LCALL  BCD2BIN         ; ATALAKITAS BINARISRA
+               PUSH   A               ; MENTES KESOBBRE
+               PUSH   MAXJAT
+               INC    MAXJAT          ; 1-EL NAGYOBABT KELL KIVONNI
+               CLR    C               ; CARRY-T TORLI, MERT AZT IS KIVONJUK
+               SUBB   A,MAXJAT
+               POP    MAXJAT
+               POP    A               ; REGISZTEREK VISSZAMENTESE
+               JNC    WSR13           ; NINCS ATVITEL, NEM NYERHET SENKI
+
+               MOV    DPTR,#SORS_TAB
+               MOVC   A,@A+DPTR        ; A SZERENCSESZAMHOZ TARTOZOT BEHIV
+              PUSH   A
+              LCALL  SER_DEBUG
+              POP    A
+               JZ     WSR13            ; HA NULLA, NEM NYERT
+               MOV    DPL,A
+               MOV    DPH,#>WIN          ; GYOZTES FELSO TABLA
+               MOVX   A,@DPTR
+               PUSH   A
+               LCALL  SER_DEBUG
+               POP    A
+               JNZ    WSR13             ; HAN EM NULLA, NEM NYERT
+               LCALL  SORS_TALALT       ; VAN NYEREMENY
+               SJMP   WSR13             ; UGRAS A VEGERE
+
+WSR10          XBYTE  W_RAND,#0         ; NYERO PALYASZAM BEOLVASAS
+               LCALL  BCD2BIN         ; ATALAKITAS BINARISRA
+               PUSH   MAXJAT               ; MENTES KESOBBRE
+               PUSH   A
+               MOV    A,MAXJAT            ; SZOROZNI KELL KETTOVEL
+               RL     A
+               MOV    MAXJAT,A
+               INC    MAXJAT          ; 1-EL NAGYOBBAT KELL KIVONNI
+               CLR    C               ; CARRY-T TORLI, MERT AZT IS KIVONJUK
+               POP    A
+               PUSH   A
+               SUBB   A,MAXJAT
+               POP    A
+               POP    MAXJAT           ; REGISZTEREK VISSZAMENTESE
+               JNC    WSR13           ; NINCS ATVITEL, NEM NYERHET SENKI
+
+               MOV    DPTR,#MELYTEAM
+               MOVC   A,@A+DPTR         ; A NYEROSZAM MELYIK CSAPATBAN VAN?
+               MOV    DREG,A            ; EREDMENY DREG-BE
+               XRBYTE   TEAMWIN,DREG
+               JNZ     WSR13             ; HA NEM NULLA, NEM NYERT
+               LCALL   SORS_TALALT
+WSR13          JB      VANGYOZ,WSR17
+               MOV     A,#H_NYVESZ
+               LCALL   H_EFFEKT
+               LCALL   COIN
+WSR17          KILAM   IZVALTO
+               POP     SNUM
+               POP     NUM
+               POP     JNUM
+               POP     AREG
+               POP     DREG
+               RET
+
+SORS_TALALT    MOV     A,#H_VALTO      ; TALALATJELZES HANGGAL
+               LCALL   H_EFFEKT
+               LCALL   WAIT_COIN_500
+               MOV     A,#H_VALTO      ; TALALATJELZES HANGGAL
+               LCALL   H_EFFEKT
+               LCALL   WAIT_COIN_500
+               MOV     A,#H_VALTO         ; TALALATJELZES HANGGAL
+               LCALL   H_EFFEKT
+               LCALL    COIN
+               MOV      B,#B_BONUS
+               LCALL    B_PLAYER
+               LCALL    WAIT_COIN_500
+               XRBYTE    JKREDIT,BREG      ; A JATEKHOZ TARTOZO KREDIT
+               ADD      A,KREDIT           ; HOZZAADJUK AZ EDDIGI KREDITHEZ
+               DA       A                  ;
+               MOV      KREDIT,A           ; VISSZATOLTES
+               XBYTEKI  KR_EDIT,#0,KREDIT  ; KIIRAS A MEMORIABA
+               LCALL   KRED_SAVE           ; KREDIT KIIRATAS
+               SETB    VANGYOZ             ; JELOLJUK, HOGY VAN GYOZTES
+               RET
+
+; NYOMOGOMB HIBA ESEMENY
+;>ERR_KEY
+ERR_KEY       PUSH    B
+                PUSH    A
+                PUSH    JNUM
+                PUSH    PSW
+
+ERRB2           MOV     A,#H_RESET
+                LCALL   H_EFFEKT        ; HIBAJELZO PITTY
+           ;     LCALL   SAVE_DISP
+                MOV     B,#B_ERROR
+                LCALL   B_PLAYER
+                LCALL   TIM500MS
+                LCALL   TIM100MS
+                MOV     B,#B_BADBUT
+                LCALL   B_PLAYER
+ERRB1       ;    LCALL   BUFINI          ; KEPERNYO TORLES
+                MOV     A,#M_BUT        ; BUT
+                PLAYER   1,1
+                LCALL    TSTCIM
+                LCALL  DARTKIJ
+                CLR    A
+                WRITE1
+                WRITE2
+                MOV     A,#H_RESET
+                LCALL   H_EFFEKT        ; HIBAJELZO PITTY
+                LCALL   TIM500MS
+                PLAYER  1,1
+                MOV     A,#M_ERR        ; ERR
+                LCALL   TSTCIM          ; MEGJELENITES
+                LCALL  DARTKIJ
+                BUTTONLSB
+                WRITE1
+                JNZ   ERRB3A           ; HA NEM NULLA, MAR NEM JO
+                BUTTONMSB
+                WRITE2
+                JZ      ERKE3          ; HA ELENGEDTEK, KILEPHET
+ERRB3A      ;    LCALL    BUFINI
+            ;    LCALL   DARTKIJ
+                MOV     A,#H_RESET
+                LCALL   H_EFFEKT        ; HIBAJELZO PITTY
+                LCALL   TIM500MS
+                BUTTONLSB
+                JNZ      ERRB3B         ; HA NEM NULLA, MAR NEM JO
+                BUTTONMSB
+                JZ      ERKE3
+ERRB3B          CLR     A
+                WRITE1
+                WRITE2
+                LJMP    ERRB1           ; MEG MEG VAN NYOMVA, VISSZA
+
+
+ERKE3           MOV   A,SL1DATA         ; ELENGEDTEK, KI LEHET LEPNI
+                WRITE1                  ; MEGELOZO ADATOK VISSZATOLTESE
+                MOV   A,SL2DATA
+                WRITE2
+;               LCALL   LOAD_DISP
+                MOV     A,#M_URES
+                PLAYER  1,1
+                LCALL   TSTCIM
+                LCALL   DARTKIJ
+                SETB    EA              ; IT ENGEDELYEZES
+                POP     PSW
+                POP     JNUM
+                POP   A
+                POP   B
+                RET                     ; VISSZATER, KEYBEN AZ ERTEK
+
+
+; CELTABLA HIBA ESEMENY
+;>ERR_TARGET
+ERR_TARGET      DELAY    10             ; 1 SEC-IG NINCS BAJ
+ERTG6           JB     FLAGTIM,ERTG7    ; HA LETELIK AZ IDO, HIBA
+                LCALL  DOBERT1
+                JZ     ERTG4            ; HA NULLA, MARIS KILEPHET
+                LCALL  FIELD_SZAM       ; A HIBAS MEZO SZAMAT IRJA KI
+                SJMP   ERTG6
+ERTG7           CLR      SVILLOG        ; VALTOBIT
+                MOV     A,#H_RESET
+                LCALL   H_EFFEKT
+                MOV      B,#B_ERROR
+                LCALL    B_PLAYER
+                LCALL    TIM500MS
+                MOV      B,#B_BADSEG
+                LCALL    B_PLAYER
+                LCALL    TIM500MS
+ERTG3           CPL      SVILLOG        ; BIT INVERTALAS
+                LCALL    FIELD_SZAM
+                MOV      A,#M_TAR       ; TAR
+                JB     SVILLOG,ERTG5    ; HA NEM 1 A BIT, NEM IRJA AT
+                MOV     A,#M_URES
+                PLAYER  3,1
+                LCALL   TSTCIM
+                MOV     A,#M_ERR        ; ERR
+ERTG5           PLAYER  1,1             ; KOZEPSO KIJELZO
+                LCALL   TSTCIM          ; MEGJELENITES
+                LCALL  DARTKIJ
+                MOV     A,#H_RESET         ; HIBAJELZO HANG
+                LCALL   H_EFFEKT
+                DELAY   3               ; FEL SEC-ENKENT A MASIK
+ERTG1           JB      FLAGTIM,ERTG3   ; HA LETELT AZ IDO, UGRAS
+                LCALL   DOBERT1
+                JZ      ERTG4           ; ELENGEDVE, KILEPHET
+                SJMP    ERTG1           ; VISSZA AZ IDOZITESBE
+
+ERTG4           MOV     A,#M_URES
+                PLAYER  1,1
+                LCALL   TSTCIM
+                LCALL  DARTKIJ
+                RET                     ; VISSZATER, KEYBEN AZ ERTEK
+
+; ERMEVIZSGALO HIBA - HIBAUZENO RUTIN
+;>ERR_COIN
+ERR_COIN        DELAY    10             ; 1 SEC-IG NINCS BAJ
+ERCG6           JB     FLAGTIM,ERCG7    ; HA LETELIK AZ IDO, HIBA
+                LCALL  VAN_COIN         ;
+                JZ     ERCG4            ; HA NULLA, MARIS KILEPHET
+                SJMP   ERCG6
+ERCG7           CLR      SVILLOG        ; VALTOBIT
+                MOV     A,#H_RESET
+                LCALL   H_EFFEKT
+                MOV      B,#B_ERROR
+                LCALL    B_PLAYER
+                LCALL    TIM500MS
+                MOV      B,#B_BADCOIN
+                LCALL    B_PLAYER
+                LCALL    TIM500MS
+ERCG3           CPL      SVILLOG        ; BIT INVERTALAS
+                MOV      A,#M_COI       ; COI
+                JB     SVILLOG,ERCG5    ; HA NEM 1 A BIT, NEM IRJA AT
+                MOV     A,#M_URES
+                PLAYER  3,1
+                LCALL   TSTCIM
+                MOV     A,#M_ERR        ; ERR
+ERCG5           PLAYER  1,1             ; KOZEPSO KIJELZO
+                LCALL   TSTCIM          ; MEGJELENITES
+                LCALL  DARTKIJ
+                MOV     A,#H_RESET         ; HIBAJELZO HANG
+                LCALL   H_EFFEKT
+                DELAY   3               ; FEL SEC-ENKENT A MASIK
+ERCG1           JB      FLAGTIM,ERCG3   ; HA LETELT AZ IDO, UGRAS
+                LCALL   VAN_COIN
+                JZ      ERCG4           ; ELENGEDVE, KILEPHET
+                SJMP    ERCG1           ; VISSZA AZ IDOZITESBE
+
+ERCG4           MOV     A,#M_URES
+                PLAYER  1,1
+                LCALL   TSTCIM
+                LCALL  DARTKIJ
+                RET                     ; VISSZATER, KEYBEN AZ ERCEK
+
+; MEGNEZI, VAN-E ERME EPPEN ?
+; EREDMENY: A=0, HA NINCS, A=1, HA VAN
+;>VAN_COIN
+VAN_COIN        READ0                   ; ERMEVIZSGALO OLVASAS
+                CPL     A               ; INVERTALAS
+                ANL     A,#COIN_MASK    ; EGYEB JELEK TORLESE
+                LCALL   TIM3MS
+                RET
+
+; ERMEVIZSGALO ELLENORZES
+;>COIN_CHECK
+COIN_CHECK     LCALL    VAN_COIN
+               JZ       CCH1            ; NINCS, KILEPHET
+               DELAY   10              ; VAR EGY MASODPERCET
+CCH2           JB      FLAGTIM,CCH3
+               LCALL   VAN_COIN
+               JZ      CCH1            ; MAR NINCS, DE MEGSZUNT
+               SJMP    CCH2            ; VARJA AZ IDO VEGET
+CCH3           LCALL   ERR_COIN
+CCH1         ;  LCALL   BUFINI
+                RET                   ; VIZSGALAT OK, VISSZATERHET
+
+;********************************************************
+; INFRA ERZEKELO BEOLVASAS
+; KIMENO ADAT A CARRY-BEN
+; HA AZ INFRA ERZEKELO JELET AD, AKKOR C=1, EGYEBKENT C=0.
+; A KIMENO ERTEK ALAPJAN IGY EGYBOL LEHET UGRAST VEGREHAJTANI.
+; INFRA JELSZINTEK: 1, HA NINCS VISSZAVERODES, 0, HA VAN. (INVERTALAS ELOTT)
+;>INFRABE
+INFRABE          CLR  INFJEL
+                 XBYTE   INF_MODE,#0    ; INFRA UZEMMOD
+                 JZ      INFB1          ; HA NULLA, KILEP
+                 READ0                  ; LS 244 OLVASASA
+                 CPL  A                 ; A INVERTALASA
+                 MOV  C,A6              ; C=0, HA NINCS VISSZAVERODES
+                 MOV  INFJEL,C          ; EREDMENY AZ INFJEL VALTOZOBA
+                 LCALL  TIM1MS
+INFB1            RET
+
+
+;*****************************************************
+; FELKESZUL A KOVETKEZO JATEKOS
+; MEGADOTT IDEIG A KIJELZO FOLOTTI LAMPAK FELVALTVA VILLOGNAK.
+; ALAPERTELMEZESBEN EZ 5 SEC.
+; BEJOVO ADAT: JNUM - A KOVETKEZO JATEKOS SZAMA
+
+; KIGYULLAD MINDKET LAMPA
+FBAL            PUSH	NUM
+		PUSH	SEG
+		MOV	NUM,#0
+		MOV	SEG,#0
+		LCALL	LAMPA
+                MOV     NUM,#0
+		MOV	SEG,#1
+		LCALL	LAMPA
+                LCALL  DARTKIJ
+		POP	SEG
+		POP	NUM
+		RET
+
+; ELALSZIK MINDKET LAMPA
+FJOBB		PUSH	NUM
+		PUSH	SEG
+                MOV	NUM,#1
+		MOV	SEG,#0
+		LCALL	LAMPA
+                MOV     NUM,#1
+		MOV	SEG,#1
+		LCALL	LAMPA
+                LCALL  DARTKIJ
+		POP	SEG
+		POP	NUM
+		RET
+
+; A MEGADOTT KESLELTETESI IDOIG VILLOGTATJA A JATEKOS FOLOTTI LAMPAT
+;>KESZUL
+KESZUL          PUSH  DREG
+                PUSH  JNUM              ; HASZNALT REGISZTEREK MENTESE
+                MOV   JNUM,#8
+KES1E           FLAMKI
+                DJNZ  JNUM,KES1E
+                POP   JNUM
+                PUSH  JNUM
+                KILAM IZBULLEYE
+                KILAM IZSZABAD
+                BELAM IZTILOS
+                KILAM IZNOSCORE1
+                KILAM IZNOSCORE2        ; A LAMPAK MEGFELELO BEALLITASA
+                JB    TILT,KS3          ; KAPCSOLOS VALTAS, NEM KELL VARNI
+                XBYTE VALT_KES,#0
+                DEC   A                 ; 1  SEC A VALTO RUTINBAN TELIK EL
+                JZ    KS3               ; HA CSAK KETTO VOLT BEALLITVA, UGRIK
+                MOV   DREG,A            ; KESZULIDO
+                LCALL FJOBB             ; JOBB OLDALI LAMPA GYUJTAS
+                CLR   SVILLOG           ; ALAPERTEK
+KSD             DELAY  2
+KS1             JNB     FLAGTIM, KS1    ; HA MEG NEM TELT LE, UGRIK
+                CPL     SVILLOG
+	        JB      SVILLOG,KS2		; JOBB OLDALI GYUJTAS
+	        LCALL   FBAL
+	        SJMP    KSD
+KS2	        LCALL   FJOBB
+                DJNZ    DREG,KSD
+KS3             SETB    P_JATEK         ; JATEKFAZIS JELZESE
+                POP     JNUM
+                POP     DREG
+                RET
+
+;**********************************************
+; A RUTIN KET JATEKOS KOZT A LEPTETEST HAJTJA VEGRE
+; KEZELI A LEPTETOGOMB VILLOGASAT, AZ INFRA ERZEKELOT
+; CSAK AKKOR TER VISSZA, HA A TOVABLEPES ENGEDELYEZETT.
+; TOVABBLEPES AZ INFRA HATASARA, VAGY A LEPTETOGOMBRA TORTENIK.
+;>VALTO
+VLTIME        EQU      2
+
+VALTO         MOV    DPTR,#MEG_ORZ
+              MOVX   A,@DPTR          ; MEGNEZI, KELL-E FLAG
+              CJNE   A,#2,VLT10       ; NEM KELL, UGRAS
+
+              LCALL    ST_SAVE           ;  GEP ALLAPOT MENTESE
+              MOV      DPTR,#ST_FLAG     ;
+              MOV      A,#ST_JATKOZ
+              MOVX     @DPTR,A          ; FLAG JELZES
+              SJMP     VLT11
+
+VLT10         MOV      DPTR,#ST_FLAG     ; NINCS VISSZATERES
+              CLR      A
+              MOVX     @DPTR,A          ; FLAG JELZES
+
+VLT11         CLR     TILT                ; JELZOBIT TORLES
+         ;    CLR     VAN_REP             ; DEFAULT: NINCS REPLAY
+         ;    CLR     REP_CUR
+         ;    CLR     REP_PREV
+              DELAY   VLTIME
+              SETB    SVILLOG              ; A VILLOGAS EGESSEL KEZD
+              KILAM   IZVALTO
+VALTO1        JNB     FLAGTIM,VLT22        ; HA MEG NEM TELT LE, UGRIK
+              CPL     SVILLOG
+	      JB      SVILLOG,VOLT2	   ; OLTASRA UGRAS
+	      BELAM   IZVALTO
+              DELAY   VLTIME
+	      SJMP    VLT22
+VOLT2	      KILAM   IZVALTO              ; LEPTETOGOMB LAMPA KIKAPCS
+	      DELAY   VLTIME
+VLT22         LCALL   COIN
+              SETB    TILT            ; JELZOBIT, HOGY KAPCS.-VAL VALTUNK
+              LCALL   REP_VALKEY       ; NYOMOGOMB OLVASAS
+              JZ      VLT1            ; HA KEY = 0, NEZI AZ INFRAT
+              JB       KAP_SHIFT,VLT22X
+              JNB     VAN_REP,VLT22X  ; HA NINCS REPLAY, UGORJA AT
+              SETB    REP_PREV
+              LCALL   SET_REPLAY      ; HA MEGVAN, UGRAS
+              SJMP    VLT1
+VLT22X        CLR      TILT
+              SJMP     VLT2
+              KEYCLR                  ; ESEMENY TORLESE
+VLT1          LCALL    INFRABE        ; INFRAJEL BEOLVASAS
+              JNB      INFJEL,VALTO1  ; HA NINCS JEL, VISSZA AZ ELEJERE
+VLT3          LCALL    INFRABE        ; INFRAJEL BEOLVASAS
+              JNB      INFJEL,VLT5B   ; HA ELMULT AZ INFRAJEL, KILEP
+              KILAM    IZVALTO        ; INFRA EREZ, VALTOGOMB KIKAPCS
+              LCALL    COIN
+              LCALL    REP_VALKEY     ; NYOMOGOMB OLVASAS
+              JZ       VLT5           ; HA KEY = 0, NEZI AZ INFRAT
+              JB       KAP_SHIFT,VLT3X
+              JNB     VAN_REP,VLT3X   ; HA NINCS REPLAY, UGORJA AT
+              SETB    REP_PREV
+              LCALL   SET_REPLAY      ; HA MEGVAN, UGRAS
+              SJMP    VLT5
+VLT3X         SETB     TILT
+              SJMP     VLT2
+VLT5          JB       INFJEL,VLT3    ; AMIG C=1, VARJA A LEFUTO ELET
+VLT5B         CLR      TILT
+              DELAY    10             ; ITT A LEFUTO EL, 1 SEC VARAKOZAS
+VLT5A         JB       FLAGTIM,VLT2   ; HA LETELT, KILEPHET
+              LCALL    INFRABE        ; MEGNEZZUK, NEM NYULTAK-E VISSZA
+              JNB      INFJEL,VLT5A   ; HA NEM, TELJEN AZ IDO
+              SJMP     VLT5
+VLT2      ;   JNB      VAN_REP,VLT2X    ; HA NINCS REPLAY, UGRAS
+          ;   SETB     REP_CUR          ; AZ ELOZOT KELL ADNI
+VLT2X         KEYCLR                  ; GOMB ESEMENY TORLESE
+              KILAM    IZVALTO
+              RET                     ; VISSZATERES, A LEPTETES MEGTORTENT
+
+; A VALTOGOMB MEGNYOMOTTSAGAT VIZSGALO RUTIN
+
+VLK2         CLR     A                  ; NEM AZ VOLT
+             RET
+
+;>VALKEY
+VALKEY       BUTTONMSB
+             ANL   A,#40H               ; A VALTOGOMBON KIVULIEKET TORLI
+             CJNE  A,#40H,VLK2           ; BILL MSB BIT6
+             LCALL   TIM30MS             ; PRELLMENTESITES
+             BUTTONMSB
+             ANL   A,#40H               ; A VALTOGOMBON KIVULIEKET TORLI
+             CJNE  A,#40H,VLK2            ; BILL MSB BIT6
+             MOV   AREG,#RESWAIT
+VLK3         DELAY   VTIME
+VLK5         BUTTONMSB
+             JB     FLAGTIM,VLK4        ; A LETELT AZ IDO, KEY ERROR
+             ANL    A,#40H               ; A VALTOGOMBON KIVULIEKET TORLI
+	     JNZ     VLK5		; MEGVARJA AMIG ELENGEDJUK
+	     LJMP    VLK6		; UGRAS A VEGERE
+VLK4         DJNZ    AREG,VLK3
+VLK7         LCALL   ERR_KEY
+VLK6         MOV   A,#1                  ; AZ VOLT, VARJUK A RESET IDOT
+             RET
+
+
+; A VALTOGOMB MEGNYOMOTTSAGAT VIZSGALO RUTIN
+
+VANE_REP        SETB    VAN_REP
+                JNB     REP_MEGINT,STP5X1     ; HA NINCS ENGEDELYEZVE, UGRIK
+                MOV     DPTR,#REP_LEHET
+                MOVX    A,@DPTR
+                JZ      STP5X           ; NINCS TOBB LEHETOSEG, UGRAS
+                DEC     A                 ; CSOKKENTI
+                MOVX    @DPTR,A           ; VISSZAMENTI
+                JNZ     VTP5Y
+                MOV     A,#IZREPLAY          ; REPLAY GOMBOT KIKAPCSOLNI
+                LCALL   IZZOK_KI
+
+VTP5Y           SJMP    RLK2A
+
+STP5X           MOV     A,#IZREPLAY
+                LCALL   IZZOK_KI
+STP5X1          CLR     VAN_REP
+                MOV     A,#H_NULLDOB          ; NEM HASZNOS,
+                LCALL   H_EFFEKT
+                SJMP    RLK2
+
+RLK2         CLR     A                  ; NEM AZ VOLT
+             CLR     KAP_SHIFT
+             RET
+
+;>REP_VALKEY
+REP_VALKEY   SETB  KAP_SHIFT
+             BUTTONMSB
+             ANL   A,#41H               ; REPLAY ES SHIFT GOMB MARAD
+             JZ    RLK2                 ; HA NINCS SEMMI, KILEPHET
+             LCALL   TIM30MS            ; PRELLMENTESITES
+             BUTTONMSB
+             ANL   A,#41H               ; A VALTOGOMBON KIVULIEKET TORLI
+             JZ    RLK2                 ; HA NINCS SEMMI, KILEPHET
+             CJNE  A,#01H,RLK2A         ; BILL MSB BIT6
+             CLR   KAP_SHIFT            ; NEM A VALTOT NYOMTAK
+             JB    VAN_REP,RLK2         ; HA MAR REPLAY ALL. VAN, KILEP
+             SJMP  VANE_REP
+
+RLK2A        MOV   AREG,#RESWAIT
+RLK3         DELAY   VTIME
+RLK5         BUTTONMSB
+             JB     FLAGTIM,RLK4        ; A LETELT AZ IDO, KEY ERROR
+             ANL     A,#41H              ; REPLAY ES SHIFT GOMB MARAD
+	     JNZ     RLK5		; MEGVARJA AMIG ELENGEDJUK
+	     LJMP    RLK6		; UGRAS A VEGERE
+RLK4         DJNZ    AREG,RLK3
+RLK7         LCALL   ERR_KEY
+RLK6         MOV   A,#1                  ; AZ VOLT, VARJUK A RESET IDOT
+             RET
+
+SKK2         CLR    A                    ; NEM AZ VOLT
+             RET
+
+;>SKIPKEY
+SKIPKEY      CLR   SKIP                  ; ALAPHELYZETBEN TOROLVE
+             BUTTONMSB
+             ANL   A,#41H
+             JZ    SKK2
+       ;      CJNE  A,#41H,SKK2           ; BILL MSB BIT6
+             LCALL   TIM30MS             ; PRELLMENTESITES
+             BUTTONMSB
+             ANL    A,#41H
+             JZ     SKK2
+             CJNE  A,#1H,SKK2C           ; BILL MSB BIT6
+             SETB  VAN_REP               ; REPLAY GOMB ELES
+             MOV     B,#B_REPLAY         ; PLAY AGAIN !
+             LCALL   B_PLAYER
+SKK2C        MOV   AREG,#SKIPWAIT
+SKK3         DELAY   VTIME
+SKK5         BUTTONMSB
+             JB     FLAGTIM,SKK4        ; A LETELT AZ IDO, SKIP=2
+	     JNZ     SKK5		; MEGVARJA AMIG ELENGEDJUK
+	     LJMP    SKK6		; UGRAS A VEGERE
+SKK4         DJNZ    AREG,SKK3
+SKK7         MOV     A,#H_RESET         ; RESET ELOKESZITO HANG
+             LCALL   H_EFFEKT
+             FENYKI
+             LCALL   LAMSOTET
+             LCALL   TIM100MS
+             BUTTONMSB
+             JNZ     SKK7               ; MEGVARJA, MIG ELENGEDIK
+             SETB    SKIP               ; A=2 --> SKIP
+             MOV     A,#2
+             RET
+
+SKK6         MOV   A,#1                 ; AZ VOLT, VARJUK A RESET IDOT
+             RET
+
+;>RESKEY
+; DOBASRA VARAKOZAS KOZBEN HIVJUK MEG.
+; HA TARTOSAN NYOMJUK A VALTOGOMBOT, RESETELI A GEPET,
+; HA CSAK EGY ROVID IDORE, AKKOR ELVESZI A NYILAKAT.
+; HA A REPLAY GOMBOT NYOMTUK MEG, BEALLITJA A VAN_REP BITET.
+
+RES_REP         SETB    VAN_REP
+                JNB     REP_MEGINT,RTP5X1    ; HA NEM LEHET NYOMNI, UGRIK
+                MOV     DPTR,#REP_LEHET
+                MOVX    A,@DPTR
+                JZ      RTP5X           ; MEG VAN LEHETOSEG, UGRAS
+                DEC     A                 ; CSOKKENTI
+                MOVX    @DPTR,A           ; VISSZAMENTI
+                JNZ     RTP5Y
+                MOV     A,#IZREPLAY          ; REPLAY GOMBOT BEKAPCSOLNI
+                LCALL   IZZOK_KI
+
+RTP5Y           LJMP    RSK6
+
+RTP5X           MOV     A,#IZREPLAY
+                LCALL   IZZOK_KI
+RTP5X1          CLR     VAN_REP
+                MOV     A,#H_NULLDOB          ; NEM HASZNOS,
+                LCALL   H_EFFEKT
+                SJMP    RSK2
+
+RSK2         CLR     A                   ; NEM AZ VOLT, KILEPES
+             RET
+
+RESKEY       BUTTONMSB                  ; FELSO BYTE OLVASASA
+             ANL   A,#41H               ; REPLAY ES SHIFT GOMB MARAD
+             JZ    RSK2                 ; HA NINCS SEMMI, KILEPHET
+             LCALL   TIM30MS            ; PRELLMENTESITES
+             BUTTONMSB                  ; UJRA RAOLVASUNK
+             ANL   A,#41H               ; REPLAY ES SHIFT GOMB MARAD
+             JZ    RSK2                 ; HA NINCS SEMMI, KILEPHET
+             CJNE  A,#01H,RSK3A         ; HA NEM REPLAY, ELUGRIK
+
+             MOV   AREG,#RESWAIT        ; MEG KELL VARNI, MIG ELENGEDIK
+RRSK3        DELAY   VTIME
+RRSK5        BUTTONMSB                  ; RAOLVASAS
+             JB      FLAGTIM,RRSK4      ; A LETELT AZ IDO, KEY ERROR
+             ANL     A,#01H             ; REPLAY GOMB MARAD
+	     JNZ     RRSK5		; MEGVARJA AMIG ELENGEDJUK
+	     LJMP    RES_REP		; ELENGEDTEK, UGRAS A VEGERE
+RRSK4        DJNZ    AREG,RRSK3
+             LCALL   ERR_KEY
+             LJMP    RES_REP             ; MEHET TOVABB
+
+RSK3A        MOV     AREG,#RESWAIT      ; RESET ELOTTI VARAKOZAS INIT.
+RSK3         DELAY   VTIME
+RSK5         BUTTONMSB                  ; OLVASGATJUK A GOMBOT
+             JB    FLAGTIM,RSK4         ; A LETELT AZ IDO, KEY ERROR
+	     JNZ     RSK5		; MEG NINCS ELENGEDVE A GOMB, VISSZA
+	     LJMP    RSK6		; UGRAS A VEGERE
+RSK4         DJNZ    AREG,RSK3
+
+RSK7A        LCALL   BUFINI              ; KEPERNYO TORLES
+             LCALL   DARTKIJ
+RSK7         MOV     A,#H_RESET          ; RESET ELOKESZITO HANG
+             LCALL   H_EFFEKT
+             MOV    DPTR,#ST_FLAG        ; FLAG CIME
+             CLR    A                    ; 0-T IRATUNK, NINCS FLAG
+             MOVX   @DPTR,A              ; NEM KELL MEGADOTT HELYRE MENNI
+         ;   FENYKI
+             LCALL   LAMSOTET
+             LCALL   TIM100MS
+             BUTTONMSB
+             JNZ     RSK7
+             POP     DPL
+             POP     DPL              ; VISSZA A VARDOBASBA
+             POP     DPH
+             POP     DPL              ; VISSZA AZ EGYJATBA
+             POP     JNUM
+             POP     DREG
+             POP     DPL
+             POP     DPH             ; VISSZA A MENET-BE
+             RET                     ; VISSZA A MENET-BOL
+
+RSK6         MOV   A,#1              ; AZ VOLT, VARJUK A RESET IDOT
+             RET
+
+;>ANYKEY
+ANYKEY       BUTTONMSB
+             JZ    ALK3
+ALK2         LCALL   TIM30MS             ; PRELLMENTESITES
+             BUTTONMSB
+             JNZ      ALK2               ; MEGVARJUK, MIG ELENGEDIK
+             MOV      A,#1               ; VOLT BILLENTYU
+             RET                         ; VISSZATERES
+ALK3         BUTTONLSB
+             JZ    ALK4
+ALK5         LCALL   TIM30MS             ; PRELLMENTESITES
+             BUTTONLSB
+             JNZ      ALK5               ; MEGVARJUK, MIG ELENGEDIK
+             MOV      A,#1               ; VOLT BILLENTYU
+             RET                         ; VISSZATERES
+ALK4         CLR      A
+             RET
+
+; RAOLVAS A NYOMOGOMBOKRA. HA VLAM MEG VAN NYOMVA, A=1-EL TER VISSZA.
+;>KEYPRESSED
+KEYPRESSED   BUTTONMSB
+             JZ    KPR3
+KPR2         LCALL   TIM30MS             ; PRELLMENTESITES
+             BUTTONMSB
+             JZ    KPR3                  ; BIZTOS, AMI BIZTOS
+             MOV      A,#1               ; VOLT BILLENTYU
+             RET                         ; VISSZATERES
+KPR3         BUTTONLSB
+             JZ    KPR4
+KPR5         LCALL   TIM30MS             ; PRELLMENTESITES
+             BUTTONLSB
+             JZ    KPR4                  ;
+             MOV      A,#1               ; VOLT BILLENTYU
+             RET                         ; VISSZATERES
+KPR4         CLR    A
+             RET
+
+;***************************************
+; Adas a soros porton:
+;
+;	0.byte - $55 (szinkron karakter)
+;	1.byte - $aa (szinkron karakter)
+;	2.byte - Óra
+;	3.byte - perc
+;	4.byte - mp
+;	5.byte -
+;	6.byte -
+;	7.byte -
+;	8.byte -
+;	9.byte -
+;     10.byte -
+;     11.byte -
+;     12.byte -
+;     13.byte - a bemeneti port ALLAPOTa
+
+;     14.byte - kontrol szumma
+
+;		mov	A,#55H	  ; szinkron karakterek
+;		lcall	byteadas
+;		mov	A,#0aaH
+;		lcall	byteadas
+;		mov	R0,#ADBUFF
+;		mov	R1,#12	  ; darabSZAM
+;		mov	R2,#0	  ; kontrol szummAhoz
+;
+;adas0		mov	A,@R0	  ; ADAS a pufferbOl
+;		xch	A,R2
+;		add	A,R2
+;		xch	A,R2
+;		lcall	byteadas
+;		inc	R0
+;		djnz	R1,adas0
+
+;		mov	A,R2	  ; kontrol szumma ADAS
+;		lcall	byteadas
+
+;testend 	LJMP	ELEJE
+
+
+;*********************************************************/
+;	Egy byte ADASa a soros porton
+
+;>BYTEADAS
+BYTEADAS   ;	RET
+                CLR TI
+		MOV C,P
+		MOV TB8,C
+		MOV SBUF,A
+bytead0 	JNB TI,bytead0
+		CLR TI
+		RET
+
+;>DEBUG
+DEBUG        RET
+             PUSH   B
+             PUSH   A
+             PUSH   DPH
+             PUSH   DPL
+             PUSH   DREG
+             PUSH   CREG
+
+                                ; kezdo karakterek
+DDBG1        MOV    A,#ccH      ; SZINKRONOZO KARAKTEREK
+             LCALL  BYTEADAS
+             MOV    A,#ddH      ; KEZODJEL
+             LCALL  BYTEADAS
+
+
+             LCALL  TIM1MS     ; EGY KIS VARAKOZAS
+             MOV    A,#AAH      ; SZINKRONOZO KARAKTEREK
+             LCALL  BYTEADAS
+             MOV    A,#55H      ; KEZODJEL
+             LCALL  BYTEADAS
+             MOV    B,#51       ; ENNYI BYTE-OT KULDUNK
+             MOV    A,B
+             LCALL  BYTEADAS    ; A BLOKK HOSSZAT IS ELKULDJUK
+             MOV    DREG,#0     ; DREG-BEN GYUJTJUK A CHECKSUM-OT
+             MOV    R0,#52H     ; ELOSZOR EZT KULDJUK AT
+DBG1         MOV    A,@R0       ; MOZGATAS A-BA
+             XRL    DREG,A      ; CHECKSUM KEPZES
+             LCALL  BYTEADAS    ; ELKULDES
+             DEC    R0          ; KOV. BYTE CIME
+             DJNZ   B,DBG1
+             MOV    A,DREG
+             LCALL  BYTEADAS            ; CHECKSUM ELKULDESE
+
+             MOV    DPTR,#MEMPLACE      ; SETUP TERULET KULDESE
+             MOV    CREG,#4             ; 4*50 BYTE BLOKKOT KULDUNK
+DBG2A        LCALL  TIM1MS             ; EGY KIS VARAKOZAS
+             MOV    A,#AAH
+             LCALL  BYTEADAS
+             MOV    A,#55H              ; KEZODJEL
+             LCALL  BYTEADAS
+             MOV    DREG,#0
+             MOV    B,#50               ; ENNYI BYTE MEGY KI
+             MOV    A,B                 ; BLOKK HOSSZA
+             LCALL  BYTEADAS
+DBG2         MOVX   A,@DPTR
+             XRL    DREG,A
+             LCALL  BYTEADAS
+             INC    DPTR
+             DJNZ   B,DBG2
+             MOV    A,DREG
+             LCALL  BYTEADAS            ; CHECKSUM ELKULDESE
+             DJNZ   CREG,DBG2A
+
+             MOV    DPTR,#VALTOZOK      ; MEMORIA VALTOZOK KULDESE
+             MOV    CREG,#10            ; 10*50 BYTE BLOKKOT KULDUNK
+DBG3A        LCALL  TIM1MS             ; EGY KIS VARAKOZAS
+             MOV    A,#AAH
+             LCALL  BYTEADAS
+             MOV    A,#55H              ; KEZODJEL
+             LCALL  BYTEADAS
+             MOV    DREG,#0
+             MOV    B,#50               ; ENNYI BYTE MEGY KI
+             MOV    A,B                 ; BLOKK HOSSZA
+             LCALL  BYTEADAS
+DBG3         MOVX   A,@DPTR
+             XRL    DREG,A
+             LCALL  BYTEADAS
+             INC    DPTR
+             DJNZ   B,DBG3
+             MOV    A,DREG
+             LCALL  BYTEADAS            ; CHECKSUM ELKULDESE
+             DJNZ   CREG,DBG3A
+
+             POP    CREG
+             POP    DREG
+             POP    DPL
+             POP    DPH
+             POP    A
+             POP    B
+             RET
+
+;***********************************************
+; SETUP KIJELZO KEZELES
+; KIJELZENDO SZAM: BCD-BEN AZ A REGISZTERBEN
+; HASZNALJA MEG A B-T IS
+;>KIJELEZ
+KIJELEZ		CLR	EA		; IT DISABLE
+		PUSH	B		; A HASZNALT REGISZTEREKET MENTJUK
+		PUSH	DPH
+		PUSH	DPL
+		MOV	B,A		; ELMENTES
+		ANL	A,#0FH		; MARADNAK AZ EGYESEK
+		ORL	A,SL0DATA	; A JELENLEGI ADATTAL OSSZE
+		SETB	A4		; BEIRO BEMENET BELLITAS
+		CLR	A5
+		WRITE0
+		MOV	A,B		; UJRA BE A SZAMOT
+		SWAP	A		; FELSO NEGY BIT AZ ALSO NEGYBE
+		ANL	A,#0FH
+		ORL	A,SL0DATA
+		CLR	A4		; IRAS A TIZESEKBE
+		SETB	A5
+		WRITE0
+		SETB	A4		; BEIRO JELEK TILTASA
+		SETB	A5
+		WRITE0
+		POP	DPL
+		POP	DPH
+		POP	B
+		SETB	EA		; IT ENGEDLEYEZES
+		RET
+
+;******************************************
+; EEPROM RUTINOK
+; P1.1 PORT BIT - SDA - SOROS ADAT
+; P1.2 PORT BIT - SCL - ORAJEL
+;
+; BUS NOT BUSY     : SDA = H,    SCL = H
+; START CONDITION  : SDA = H->L, SCL = H
+; STOP CONDITION   : SDA = L->H, SCL = H
+; DATA VALID       : SCL = H IDOTARTAM ALATT
+; DEVICE ADDRESS   : A0 = 0, A1 = 0
+; WR = 0, RD = 1;
+; AZ ORAJEL H ES L SZINTJET 5us-G TARTANI KELL !!!
+; EGYELORE CSAK AZ ALSO 256-BYTE-OT IRJUK
+; A FELSO 256 BYTE-BA IRUNK AZ IRAS VEDELEM MIATT
+
+
+; EEPROM VEZERLES INICIALIZALASA - MINDKET VONALAT H-BA TESSZUK
+EEPROM_INIT       CLR    EA
+                  SETB   SCL
+                  SETB   SDATA;
+                  DEL5U
+                  SETB   EA
+                  RET
+
+WR_           EQU      0A0H     ; VEZERLOBYTE IRASHOZ
+RD_           EQU      0A1H     ; VEZERLOBYTE OLVASASHOZ
+
+SDATA_H       MACRO
+              SETB      SDATA
+              DEL5U
+              ENDM
+
+SDATA_L       MACRO
+              CLR      SDATA
+              DEL5U
+              ENDM
+
+SCL_H       MACRO
+            SETB      SCL
+            DEL5U
+            ENDM
+
+SCL_L       MACRO
+            CLR      SCL
+            DEL5U
+            ENDM
+
+; CONTROL BYTE
+; BEJOVO ADAT : NUM-BAN A KIIRANDO VEZERLOBYTE
+;>CONT_BYTE
+CONT_BYTE     PUSH   B
+CC_BYTE       SDATA_H
+              SCL_H
+              SDATA_L           ; START FELTETEL
+              SCL_L             ; ORAJEL L-BE
+              MOV     A,NUM
+              MOV     B,#8
+CBY1          RLC     A         ; A-T A CARRY-BE FORGATJUK
+              MOV     SDATA,C   ; KIIRJUK AZ ADATBA
+              SCL_H
+              SCL_L             ; KIIRO ORAJEL
+              DJNZ    B,CBY1    ; NYOLCSZOR MEGCSINALJUK
+              SDATA_H           ; NYUGTAVARASHOZ ELOKESZULET
+              SCL_H             ; NYUGTAVARO ORAJEL
+              MOV    C,SDATA    ; BEOLVASAS
+              JC     CC_BYTE
+              SCL_L             ; NYUGTAZO ORAJEL VEGE
+              POP    B
+              RET
+
+; STOP CONDITION WITH BUS FREE STATUS
+;>STOP
+STOP          SCL_L
+              SDATA_L
+              SCL_H
+              SDATA_H           ; STOP ALLAPOT
+              RET
+
+;*** BYTE KIIRAS
+; ADAT AZ A-BAN
+;>WRBYTE
+WRBYTE     SCL_L              ; ORAJEL L SZINTRE
+           MOV    B,#8        ; CIKLUSSZAMLALO FELTOLTES
+WRB1       RLC    A           ; KIIRANDO BIT A CARRY-BE
+           MOV    SDATA,C
+           SCL_H
+           SCL_L              ; KIIRO ORAJEL
+           DJNZ   B,WRB1      ; NYOLCSZOR KELL MEGCSINALNI
+           SDATA_H            ; NYUGTAZASRA VARAS
+           SCL_H
+WRB2       MOV   C,SDATA      ; ADATVONAL BEOLVASAS
+           JC    WRB2         ; ADDIG OLVASSUK, MIG NEM NULLA
+           SCL_L              ; ORAJEL TORLES
+           SDATA_H            ; BIZTOS, AMI BIZTOS
+           RET
+
+
+;*** BYTE BEOLVASAS
+; AZ EREDMENY AZ A-BAN LESZ
+;>RDBYTE
+RDBYTE   SDATA_H                ; ADATVONAL H-BA
+         MOV    B,#8
+RDB1     SCL_H                  ; ORAJEL H-BA
+         MOV   C,SDATA          ; ADAT BEOLVASAS
+         RLC   A                ; ATFORGATAS AZ A-BA
+         SCL_L                  ; ORAJEL L-BE
+         DJNZ  B,RDB1           ; NYOLCSZOR OLVASUNK
+         RET
+
+; MASTER ALTAL ADOTT NYUGTAZOJEL - OLVASAS UTAN
+; EGY ORAJEL FEL-LE FUTASSAL ADJUK AZ ACK JELET
+MAST_ACK      SDATA_L        ; ADATVONAL L-BEN LEGYEN
+              SCL_H          ; NYUGTAADO ORAJEL
+              SCL_L
+              RET
+
+;** BYTE WRITE
+; BEJOVO ADAT: SNUM - CIM
+;              NUM  - ADAT
+
+;BWRITE		CLR	EA
+;		LCALL	STARTWR
+;		MOV	A,SNUM
+;		LCALL	WRBYTE
+;		MOV	A,NUM
+;		LCALL	WRBYTE
+;		LCALL	STOP
+;		SETB	EA
+;		RET
+
+; BEJOVO ADAT: SNUM - KEZDOCIM
+; BEJOVO ADAT: DPTR-BEN AZ ELSO ADAT CIME
+;>PAGEWRITE
+PAGEWRITE       PUSH    JNUM
+                MOV     NUM,#WR_          ; VEZERLOBYTE IRASHOZ
+		LCALL	CONT_BYTE         ; VEZERLOBYTE KIIRATAS
+		MOV	A,SNUM
+
+		LCALL	WRBYTE            ; EEPROM CIM KIIRATAS
+                MOV     JNUM,#8
+PGW1            MOVX    A,@DPTR
+		LCALL	WRBYTE
+                INC     DPTR
+                DJNZ    JNUM,PGW1
+		LCALL	STOP
+                POP     JNUM
+		RET
+
+BYTEIR      ;    SETB    P17
+                MOV     NUM,#WR_        ; VEZERLOBYTE IRASHOZ
+		LCALL	CONT_BYTE       ; VEZERLOBYTE KIIRATAS
+		CLR     A
+		LCALL	WRBYTE          ; EEPROM CIM KIIRATAS
+                MOV     A,#96H
+		LCALL	WRBYTE
+                LCALL   STOP            ; STOP ALLAPOT KIIRAS
+            ;    CLR     P17
+            ;   LCALL   TIM10MS
+                RET
+
+BYTE_IR      ;   SETB    P17
+                MOV    NUM,#WR_           ; VEZERLOBYTE IRASHOZ
+	        LCALL  CONT_BYTE		; START CONDITION
+             ;   CLR     P17
+                RET
+
+
+;EEP_TEST        EEPEN
+;EEP1A           LCALL   BYTEIR
+;             ;   LCALL   EEPROM_INIT
+;                LCALL   TIM10MS
+;                LCALL   BYTEOLVAS
+;              ; MOV     DPTR,#MEMPLACE
+;              ; MOVX    A,@DPTR
+;              ; LCALL   P_DISP
+;             ;  LCALL   BYTEOLVAS
+;                LCALL   TIM10MS
+;                SJMP    EEP1A
+;                RET
+
+;BYTEOLVAS     SETB   P16
+;              CLR    EA
+;              MOV    NUM,#WR_           ; VEZERLOBYTE IRASHOZ
+;	      LCALL  CONT_BYTE		; START CONDITION
+;	      MOV    A,#0		; A KEZDOCIMET KIIRJUNK
+;	      LCALL  WRBYTE		; BYTE KIIRAS
+;              MOV    NUM,#RD_
+;	      LCALL  CONT_BYTE		; START CON. OLVASASHOZ
+;              LCALL  RDBYTE
+;              MOV    DREG,A
+;           ;  LCALL  MAST_ACK
+;;              LCALL  STOP
+;;              MOV    A,DREG
+;              LCALL  P_DISP
+;           ;  LCALL  MAST_ACK           ; NYUGTAZZUK AZ UTOLJARA VETT BYTEOT
+;           ;  LCALL  STOP
+;              CLR    P16
+;              SETB   EA
+;              RET
+
+;*****************************************
+; DARTKIJ VEZERLES
+;*****************************************
+;*****************************************
+; KIJELZO PUFFER TERULET INICIALIZALASA
+
+;******************************
+; A RUTIN A FELSO KIJELZO PUFFER TERULETEN ELOKESZITETT ADATHALMAZT KULDI KI
+; A KIJELZORE
+; FELSO KIJELZO STARTBIT KIKULDES
+
+
+; KIJELZO INICIALIZALO RUTIN
+;>DISP_INIT
+;DISP_INIT       LCALL   TIM100MS
+;                MOV	A,#0H	   ; ADATBIT NULLA, INIT ORAJEL
+;	     	WRITE3		   ; KIIRAS A KIJELZO ADATPORTRA
+;                F_CLK              ; ORAJEL
+;                MOV	A,#0H	   ; ADATBIT NULLA, INIT ORAJEL
+;	     	WRITE3		   ; KIIRAS A KIJELZO ADATPORTRA
+;                A_CLK              ; ORAJEL
+;                RET
+
+FSTARTBITKI     MOV   A,#0FFH	   ; STARTBIT 1-ES
+		WRITE3		   ; KIIRAS A KIJELZO ADATPORTRA
+                F_CLK              ; ORAJEL
+		RET
+
+;********************************
+; A RUTIN AZ ALSO  KIJELZO PUFFER TERULETEN ELOKESZITETT
+; ADATHALMAZT KULDI KI A KIJELZORE
+
+ASTARTBITKI
+	        MOV   A,#0FFH	   ; STARTBIT 1-ES
+		WRITE3		   ; KIIRAS A KIJELZO ADATPORTRA
+                A_CLK              ; ORAJEL
+		RET
+
+
+;>BUFINI
+BUFINI    CLR   EA
+          PUSH  B
+          PUSH  DPL
+          PUSH  DPH
+          MOV   R0,#DF_BUF
+          CLR   A
+          MOV   B,#36
+N_B1      MOV   @R0,A
+          INC   R0
+          DJNZ  B,N_B1
+          MOV   R0,#DA_BUF
+          CLR   A
+          MOV   B,#36
+N_B2      MOV   @R0,A
+          INC   R0
+          DJNZ  B,N_B2
+          LCALL KILAMPA    ; 7.SZERIABAN NEM KELL
+          POP   DPH
+          POP   DPL
+          POP   B
+          SETB  EA
+          RET
+
+
+N_LAM     MOV   R0,#140
+          MOV   A,#08H
+          MOV   @R0,A
+          RET
+
+DF_BUF        EQU       0A0H  ;  ITT KEZDODIK A FELSO KIJELZO
+DA_BUF        EQU       0D0H  ;  ITT KEZDODIK AZ ALSO KIJELZO
+
+
+;>DARTKIJ
+
+; KIJELZO VEZERLES
+;>N_DARTKIJ
+DARTKIJ
+N_DARTKIJ	CLR	EA		; IT LETILTAS A KIJELZES IDEJERE
+                PUSH    A
+	        PUSH    DPL
+                PUSH    DPH
+		PUSH	B
+                PUSH    PSW
+                KIJ_EN                  ; KIJELZO ENGEDELYEZES
+             ;   SETB    P17
+		LCALL	FSTARTBITKI	; 7406 MIATT INVERTALT JELEK
+		MOV	B,#35		; 35-SZER KELL A RUTIN (34 HASZNOS+1)
+                MOV     DPTR,#DISPDATA
+                MOV     R0,#DF_BUF      ; EZEK LESZNEK A VALTOZOK
+
+DFN_HUR		MOV     A,@R0		; KIIRANDO BYTE ELOKESZITESE
+                MOVX    @DPTR,A         ; KIIRATAS A CIMRE
+                INC     R0              ; MUTATO NOVELESE
+                F_CLK
+		DJNZ	B,DFN_HUR 	; 35 ADATBYTE KIIRATAS
+                CLR     A
+                MOVX    @DPTR,A
+                F_CLK    		; BEIRO ORAJEL FELFUTO EL
+				        ; BEIRO ORAJEL LEFUTO EL (STOP BIT)
+		                        ; FELSO TABLA KESZ,  ALSO KOVETKEZIK
+
+		LCALL	ASTARTBITKI	; 7406 MIATT INVERTALT JELEK
+		MOV	B,#35		; 35-SZER KELL A RUTIN (34 HASZNOS+1)
+                MOV     R0,#DA_BUF      ; EZEK LESZNEK A VALTOZOK
+
+DAN_HUR		MOV     A,@R0		; KIIRANDO BYTE ELOKESZITESE
+                MOVX    @DPTR,A         ; KIIRATAS A CIMRE
+                INC     R0              ; MUTATO NOVELESE
+                A_CLK
+		DJNZ	B,DAN_HUR 	; 35 ADATBYTE KIIRATAS
+                CLR     A	        ; ADATBIT NULLA, INIT ORAJEL
+                MOVX    @DPTR,A
+                A_CLK    		; BEIRO ORAJEL FELFUTO EL
+				        ; BEIRO ORAJEL LEFUTO EL (STOP BIT)
+              ; CLR     P17
+                POP     PSW
+		POP	B
+                POP     DPH
+                POP     DPL
+                POP     A
+		SETB	EA		; IT ENGEDELYEZES
+		RET
+
+
+F_OLT         MACRO    CIM, MASK
+              MOV      R0,#DF_BUF+CIM   ; R0-BA A CIM
+              MOV      A,#MASK          ; A-BA A MASZK
+              CPL      A                ; NEGALNI KELL OLTASHOZ
+              ANL      A,@R0
+              MOV      @R0,A
+              ENDM
+
+
+F_VIL         MACRO    CIM, MASK
+              MOV      R0,#DF_BUF+CIM          ; R0-BA A CIM
+              MOV      A,#MASK          ; A-BA A MASZK
+              ORL      A,@R0
+              MOV      @R0,A
+              ENDM
+
+A_VIL         MACRO    CIM, MASK
+              MOV      R0,#DA_BUF+CIM          ; R0-BA A CIM
+              MOV      A,#MASK          ; A-BA A MASZK
+              ORL      A,@R0
+              MOV      @R0,A
+              ENDM
+
+
+        .INCLUDE NEWKIJ.INC   ; KIJELZO SZEGMENSEK TABLACIME
+
+;>DOB_VAN
+DOB_VAN        PUSH     B
+               MOV      DPTR,#CT1
+DBVN2          MOVX     A,@DPTR
+               JNZ      DBVN1           ; HA NEM NULLA, MAR KI IS LEP
+               INC      DPTR
+               DJNZ     B,DBVN2
+               CLR      A               ; NINCS DOBAS
+               POP      B
+               RET
+DBVN1          MOV      A,#1
+               POP      B
+               RET                      ; VOLT DOBAS
+
+;**************************
+; DOBAS ERTEKELES
+; HA NEM JO VOLT, A=0 - VAL TER VISSZA,
+; KIMENO ADAT: CTPONT - EGYSZERES ERTEK
+; 		 DREG - SZORZO
+;>DOBERT1
+DOBERT1		PUSH  DPL               ; #2
+                PUSH  DPH               ; #2
+                MOV   DREG,#0           ; #1, 0 LEGYEN, HA URESET DOBTAK
+                MOV   CTPONT,#0         ; #1, CTPONT IS LEGYEN NULLA
+		LCALL	CTABLABE	; #180, CELTABLA ADAT FRISSITES
+                                        ; ($186)
+DBRT1           XBYTE   CT1,#0          ; #4
+		JZ	TV1		; #2, UGRIK, HA A=0
+                MOV     DPTR,#CCT1      ; #2
+		LJMP	TV8             ; #2
+
+TV1             XBYTE   CT2,#0          ; #4
+		JZ	TV2             ; #2
+                MOV     DPTR,#CCT2
+		LJMP	TV8
+
+TV2             XBYTE   CT3,#0
+		JZ	TV3
+                MOV     DPTR,#CCT3
+		SJMP	TV8
+
+TV3             XBYTE   CT4,#0
+		JZ	TV4
+                MOV     DPTR,#CCT4
+		SJMP	TV8
+
+TV4             XBYTE   CT5,#0
+		JZ	TV5
+                MOV     DPTR,#CCT5
+		SJMP	TV8
+
+TV5             XBYTE   CT6,#0
+		JZ	TV6
+                MOV     DPTR,#CCT6
+		SJMP	TV8
+
+TV6             XBYTE   CT7,#0
+		JZ	TV7
+                MOV     DPTR,#CCT7
+		SJMP	TV8
+
+TV7             XBYTE   CT8,#0
+                JZ      VG1
+                MOV     DPTR,#CCT8
+
+TV8             LCALL   BITNUM          ; KISZAMITJUK, HANYADIK BITEN UTOTT
+                RL      A               ; A-T SZOROZZUK KETTOVEL
+                PUSH    A               ; ELMENTJUK KESOBBRE
+                MOVC    A,@A+DPTR
+                MOV     CTPONT,A          ; A PONTSZAM KISZAMITVA
+                INC     DPTR            ; A KOVETKEZO BYTE-RA NEZUNK
+                POP     A
+                MOVC    A,@A+DPTR       ; A SZORZOBYTE IS BEHOZVA
+                MOV     DREG,A          ; OSZTOTT BULLEYE VIZSGALAT
+                PUSH    A               ; MENTES
+                MOV     A,CTPONT        ; HA NINCS DOBAS, UGRIK
+                JZ      TVIZ1
+                XBYTE   INF_MODE,#0     ; INFRA UZEMMOD BEHIVAS
+                CJNE    A,#2,TVIZ1      ; HA NEM MOD2, UGRAS
+                LCALL   INFRABE         ; MEGNEZZUK AZ INFRAT
+                JNB     INFJEL,TVIZ1    ; HA NINCS JEL, UGRAS
+                MOV     A,#H_SZIREN
+                LCALL   H_EFFEKT
+TVIZ1           POP     A
+                ANL     A,#00001100B    ; BULLEYE VIZSGALAT
+                JZ      VG1             ; NEM BULL EYE
+                JB      P_TEST,VG1      ; TESZT MODBAN NEM NEZI
+                XRBYTE   SPBULL,BREG    ; A JATEKHOZ TARTOZO SZAM
+                JZ      VG1             ; HA 0, AKKOR JOK A REG.-EK
+                CJNE    A,#1,VG2        ; HA NEM 25, UGRAS
+                MOV     CTPONT,#25H
+                MOV     DREG,#4
+                SJMP    VG1             ; TELJES BULLEYE, 25 PONT
+VG2             MOV     CTPONT,#50H
+                MOV     DREG,#8         ; TELJE BULLEYE, 50 PONT
+VG1          ;  MOV     A,CTPONT
+             ;  LCALL   BYTEADAS
+                MOV     A,DREG          ; #1, KILEPES DOBAS NELKUL
+                POP     DPH             ; #2
+                POP     DPL             ; #2
+		RET                     ; #2 ( *241, ha nincs dobas)
+
+; PONTSZAM INICIALIZALO RUTIN
+
+I_TIZEGY                EQU    01H
+I_SZAZAS                EQU    03H       ; PONTSZAM INICIALIZALO ERTEK
+
+;>PONTINIT
+PONTINIT        CLR	EA
+		PUSH	B
+		MOV	B,#8		; 9X2 BYTE KELL
+     		MOV	DPTR,#PONT1	; PONTSZAM TERULET KEZDOCIME
+PINIT1        	MOV	A,SZAZAS        ; SZAZASOK KIIRATASA
+		MOVX	@DPTR,A
+                INC	DPTR            ; KOVETKEZO BYTE
+                MOV     A,TIZEGY
+		MOVX	@DPTR,A         ; TIZES,EGYESEK
+		INC	DPTR            ; KOVETKEZO BYTE
+		DJNZ	B,PINIT1
+                CLR     A
+		MOVX	@DPTR,A         ; MENETPONTSZAM NULLAZAS
+                INC	DPTR
+		MOVX	@DPTR,A         ; EGYESEKET IS
+		POP	B
+		SETB	EA
+		RET
+
+JPONTCLR       CLR	EA
+     		MOV	DPTR,#PONT1+16 ; PONTSZAM TERULET KEZDOCIME
+;            	MOV	A,#18           ; A KILENCEDIKET NULLAZZUK
+;                ADD     A,DPL           ; KISZAMITJUK AZ OFFSZETET
+;                MOV     DPL,A           ; VISSZA A DPL-BE
+                CLR      A               ; AZ INIT ERTEK
+		MOVX	@DPTR,A
+                INC	DPTR
+		MOVX	@DPTR,A
+                SETB    EA
+		RET
+
+ ; KEZDETI NULLAK ELTUNTETESE
+;>HIDEZERO
+HIDEZERO          MOV    A,SNUM         ; SZAZASOK ATTOLTESE
+                  ANL    A,#0FH         ; FELSO NEGYES NULLAZASA
+                  JNZ    HDZ1           ; SZAZASOK NEM NULLA, RETURN
+                  MOV    SNUM,#0AH      ; AZ UJ ERTEK BETOLTESE
+                  MOV    A,NUM          ; MEGNEZZEUK A TIZESEKET IS
+                  ANL    A,#0F0H        ; AZ ALSO NEGYEST TOROLJUK
+                  JNZ    HDZ1           ; HA A TIZESEK NEM NULLA, RETURN
+                  MOV    A,NUM          ; NUM-OT UJRA BETOLTJUK
+                  ANL    A,#0FH         ; ALSO NEGYES MEGMARAD
+                  ORL    A,#A0H         ; UJ ERTEK BEALLITASA
+                  MOV    NUM,A          ; KIMENO ADAT BEALLITASA
+HDZ1              RET                   ; VISSZATERES
+
+; 301 PARC. JATEKHOZ PONTSZAM KONVERZIO
+; BEJOVO ADAT: SNUM - SZAZASOK
+; BEJOVO ADAT:  NUM -TIZES,EGYES
+; KIMENO ADAT: SNUM-NUM-BAN
+; A BEJOVO ADATOT 301-BOL KIVONJUK
+;>PARCONV
+PARCONV         SETB    C               ; AZ ELEJEN TIZES KOMPLEMENS
+                MOV     A,#99H          ; KILENCES KOMPLEMENS KEPZESE
+                ADDC    A,#0            ; CARRY HOZZAADAS
+                SUBB	A,NUM           ; KIVONAS:KOMPLEMENS HOZZAADAS
+                ADD     A,#1
+                DA      A               ; A KELETKEZETT CARRY-T VISSZUK
+                MOV     NUM,A
+                MOV     A,#99H
+                ADDC    A,#0
+                SUBB    A,SNUM
+                ADD     A,#3
+                DA      A
+                MOV     SNUM,A
+                ANL     SNUM,#0FH
+PRC2            LCALL   HIDEZERO
+		RET
+
+; 01-ES JATEKOKHOZ PONTSZAM KONVERZIO STATISZTIKAHOZ
+; BEJOVO ADAT: SNUM - SZAZASOK
+; BEJOVO ADAT:  NUM -TIZES,EGYES
+; KIMENO ADAT: SNUM-NUM-BAN
+; A BEJOVO ADATOT 301, 501,701,901-BOL KIVONJUK
+;>CONV01
+
+C_01     DB    0, 0, 0, 3, 5, 7, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+CONV01          PUSH    AREG
+                CBYTE   C_01,BREG       ; MENNYIVEL KEZDODIK A SZAM ?
+                MOV     AREG,A
+                SETB    C               ; AZ ELEJEN TIZES KOMPLEMENS
+                MOV     A,#99H          ; KILENCES KOMPLEMENS KEPZESE
+                ADDC    A,#0            ; CARRY HOZZAADAS
+                SUBB	A,NUM           ; KIVONAS:KOMPLEMENS HOZZAADAS
+                ADD     A,#1
+                DA      A               ; A KELETKEZETT CARRY-T VISSZUK
+                MOV     NUM,A
+                MOV     A,#99H
+                ADDC    A,#0
+                SUBB    A,SNUM
+                ADD     A,AREG          ; AREG A JATEKNAK MEGFELELO
+                DA      A
+                MOV     SNUM,A
+                ANL     SNUM,#0FH
+                POP     AREG
+		RET
+
+; BULLMASTER JATEKHOZ PONTSZAM CSOKKENTES
+; BEJOVO ADATOK: AKT. JATEKOS - JNUM
+;                AKT. PONT    - CTPONT
+;  ELOTTE MEG KELL VIZSGALNI, HOGY NEM LESZ-E NEGATIV AZ EREDMENY
+;  TULCSOR BITET 1-BE ALLITJA, HA AZ EREDMENY NEGATIV LENNE, ES NEM VONJA KI
+;  NULLALETT BITET 1-BE ALLITJA, HA AZ EREDMENY PONT NULLA LESZ, EL IS VEGZI
+; A MEGADOTT JATEKOS PONTSZAM TERULETEROL BEHOZZA AZ EDDIGI PONTSZAMOT,
+; A SZAZASOKAT A CREG-BE, A TIZESEKET AZ AREG-BE TOLTI.
+; KIVONANDO PONTSZAM A CTPONT VALTOZOBAN.
+; A BEJOVO ADATBOL 40-ET KIVONUNK
+B_KIVON         PUSH	DPH
+		PUSH	DPL
+                PUSH    CREG
+	        PUSH	JNUM
+                CLR     NULLALETT
+                CLR     TULCSOR         ; JELZOBITEK TORLESE
+BKVN14  	MOV	DPTR,#PONT1
+		MOV	A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                MOVX    A,@DPTR         ; A SZAZASOKAT BEOLVASSA
+            ;   LCALL   KIIRAS8
+                MOV     CREG,A          ; SZAZASOK CREG-BE (KISEBBITENDO)
+                INC     DPTR
+		MOVX	A,@DPTR
+                MOV     AREG,A          ; TIZESEK AREG-BE (KISEBBITENDO)
+            ;   LCALL   KIIRAS8
+                MOV     A,CREG          ; MEGVIZSGALJUK, NEM LESZ-E NEGATIV
+                JNZ     BKVN2            ; VAGY NULLA A KIVONAS
+                                        ; HA A SZAZASOK > 0, BIZTOSAN NEM
+                MOV     A,AREG          ; OSSZEHASONLITJUK A TIZESEKET
+                CJNE    A,CTPONT,BKVN3
+                SETB    NULLALETT       ; EGYENLOEK, 0 LESZ AZ EREDMENY
+                SJMP    BKVN2
+BKVN3           MOV     A,AREG
+                CLR     C               ; CARRY TORLESE KIVONAS ELOTT
+                SUBB    A,CTPONT        ; KIVONJUK
+                JNC     BKVN2
+                SETB    TULCSOR         ; TULCSORDULAS BIT BEALLITASA
+                MOV     CREG,#0
+                MOV     AREG,#0         ; KIVONAS ELVEGEZVE ...
+                LJMP   BKVN1            ; UGRAS A VEGERE
+BKVN2           SETB    C               ;
+                MOV     A,#99H          ; KILENCES KOMPLEMENS KEPZESE
+                ADDC    A,#0            ; CARRY HOZZAADAS
+                SUBB	A,CTPONT        ; KOMPLEMENS KEPES A-BA
+                ADD     A,AREG          ; KISEBBITENDO HOZZAADAS
+                DA      A
+	        MOV     AREG,A          ; KULONBSEG TIZESEK AREG-BE
+                MOV     A,#99H
+                ADDC    A,#0
+                SUBB    A,#0            ; KIVINANDONAK NICSEN SZAZASA
+                ADD     A,CREG          ; SZAZASOK HOZZAADASA
+                DA      A
+                MOV     CREG,A
+                ANL     CREG,#0FH
+
+BKVN1           MOV	DPTR,#PONT1
+		MOV	A,JNUM          ; A TERULET ELTOLASAT KISZAMITJUK
+		DEC	A		; HOGY 0-VAL KEZDODJON
+		RL	A               ; SZORZAS KETTOVEL
+		ADD	A,DPL
+		MOV	DPL,A           ; DPTR-BEN A MEGFELELO ELTOLAS
+                MOV     A,CREG          ;
+       ;        LCALL   KIIRAS8
+                MOVX    @DPTR,A         ; A SZAZASOKAT KIIRASA
+                INC     DPTR
+                MOV     A,AREG
+        ;       LCALL   KIIRAS8
+                MOVX    @DPTR,A         ; TIZESEK, EGYESEK KIIRASA
+
+		POP	JNUM
+                POP     CREG
+		POP	DPL
+		POP	DPH
+		RET
+
+
+;>LED_OLT
+LED_OLT         PUSH    JNUM
+                PUSH    B
+ 		MOV	JNUM,#1         ; KEZDJUK AZ ELSO JATEKOSSAL
+LKO3            MOV     DPTR,#JATSZIK
+                MOV     DPL,JNUM
+                MOVX    A,@DPTR         ; JATEKOS BEJEGYZES BEOLVASAS
+                JZ      LKO6            ; HA NEM JATSZIK, UGRAS
+LKO1            MOV	DPTR,#CRTABLA	; CRICKET LEDEK TERULET ELEJE
+                MOV     A,JNUM          ; JATEKOS SZERINTI ELTOLAS
+                DEC     A
+                RL      A
+                RL      A
+                RL      A               ; SZORZAS NYOLCCAL
+                ADD     A,DPL
+                MOV     DPL,A           ; ELTOLAS A DPL-BE
+                MOV     B,#15           ; LED SOROK 15-21-IG
+
+LKO2            MOVX	A,@DPTR         ; KIJELZENDO LED ADAT
+		MOV	NUM,#3		; MEG FOG INVERTALODNI
+                LCALL   CRICLED
+		INC	DPTR
+                INC     B
+                MOV     A,#22          ; HA B ELERI A 22-T, EGY JATEKOS KESZ
+                CJNE    A,B,LKO2
+
+LKO6            INC     JNUM            ; JATEKOSSZAM NOVELES
+                MOV     A,JNUM
+              	CJNE	A,#9,LKO3
+LKO7            POP     B
+                POP     JNUM
+                RET
+
+
+; MINDEN JATEKOS LED-JEIT KIGYUJTJA A TABLAZATNAK MEGFELELOEN
+;>LED_KIJ
+LED_KIJ         PUSH    JNUM
+                PUSH    B
+                CLR     LED_ALL
+ 		MOV	JNUM,#1         ; KEZDJUK AZ ELSO JATEKOSSAL
+LKIR3           CLR     LED_ALL
+                MOV     DPTR,#JATSZIK
+                MOV     DPL,JNUM
+                MOVX    A,@DPTR         ; JATEKOS BEJEGYZES BEOLVASAS
+                JZ      LKIR6           ; HA NEM JATSZIK, UGRAS
+                JNB     PAIR_CR,LKIR1A  ; NEM PAIR CR. MINDEN EGHET
+                MOV     DPTR,#BELEPETT  ; MEGNEZI, MEHET-E MINDEN LED ?
+                MOV     DPL,JNUM
+                MOVX    A,@DPTR         ; BEHOZZUK AZ ERTEKET
+                JZ      LKIR1           ; HA NULLA, NEM MEHET MINDEN LED
+LKIR1A          SETB    LED_ALL         ; MINDEN LED KIJELEZHETO
+LKIR1           MOV	DPTR,#CRTABLA	; CRICKET LEDEK TERULET ELEJE
+                MOV     A,JNUM          ; JATEKOS SZERINTI ELTOLAS
+                DEC     A
+                RL      A
+                RL      A
+                RL      A               ; SZORZAS NYOLCCAL
+                ADD     A,DPL
+                MOV     DPL,A           ; ELTOLAS A DPL-BE
+                MOV     B,#15           ; LED SOROK 15-21-IG
+
+LKIR2           MOVX	A,@DPTR         ; KIJELZENDO LED ADAT
+		MOV	NUM,A		; PONTSZAM AZ A-BA ES NUM-BA
+                JB      LED_ALL,LKIR5     ; HA KELL MINDEN LED, UGRIK
+                MOV     A,#21             ; VIZSGALAT BULLRA
+                CJNE    A,B,LKIR2A        ; HA NEM BULL, UGRAS
+                MOV     A,AKTKOR
+                JB      A0,LKIR2B         ; HA PARATLAN KOR, NINCS KIJELZES
+                SJMP    LKIR5             ; HA PAROS, MEHET
+LKIR2A          MOV     A,AKTKOR
+                CPL     A                 ; INVERTALAS
+                XRL     A,B               ; A-BAN AZ AKTKOR VOLT
+                ANL     A,#01H
+                JZ      LKIR2B            ;  HA NULLA, NINCS KIJELZES
+
+LKIR5           LCALL   CRICLED
+LKIR2B		INC	DPTR
+                INC     B
+                MOV     A,#22          ; HA B ELERI A 22-T, EGY JATEKOS KESZ
+                CJNE    A,B,LKIR2
+
+LKIR6           INC     JNUM            ; JATEKOSSZAM NOVELES
+                MOV     A,JNUM
+              	CJNE	A,#9,LKIR3
+LKIR7           POP     B
+                POP     JNUM
+                RET
+
+
+; PONTSZAM KIIRATAS MINDEN JATEKOSRA
+; MINDEN JATEKOS PONTSZAMAT ES LEDJEIT KIJELZI.
+; HA 301 PARCHESS (17) A JATEK, 301-BOL KIVONJUK ELOZOLEG A KIIRANDO
+; SZAMOT
+;>PONTKIIR
+PONTKIIR        CLR	EA
+		PUSH	DREG
+                PUSH    NUM
+                PUSH    JNUM
+                PUSH    JATAKT
+                PUSH    SNUM
+                MOV	JNUM,#1
+PKIR1           MOV     DPTR,#JATSZIK          ; MEGNEZZUK, JATSZIK-E A JATEKOS
+                MOV     DPL,JNUM
+                MOVX    A,@DPTR                ; JATEKOS BEJEGYZES BEOLVASAS
+                JZ      PKIR5                  ; HA NEM JATSZIK, UGRAS
+                MOV     A,BREG                 ; JATEK SZAMANAK BETOLTESE
+                JNB     CRIC_GROUP,PKIR8       ; HA NEM CRICKET, UGRIK
+                JB      P_VEGE,PKIR8           ; HA VEGE, NEM IRJA KI
+                MOV     NUM,#0                 ; LAMPA KIGYUL
+                MOV     SEG,#2                 ; CRICKET LAMPA
+                LCALL   LAMPA
+PKIR8           MOV     JATAKT,JNUM
+                LCALL   PSZAMBE
+		MOV	SNUM,SZAZAS	  ; SZAZASOK
+		MOV	NUM,TIZEGY        ; TIZESEK-EGYESEK
+             ;  JB      P_VEGE,PKIR4      ; HA MAR VEGE VAN, NEM KONV.
+                MOV     A,BREG
+                CJNE    A,#17,PKIR4
+                LCALL   PARCONV        ; HA 301 PARC., KONVERTALJUK A PONTOT
+PKIR4           LCALL   HIDEZERO        ; KEZDETI NULLAK ELTUNTETESE
+                LCALL	PONTSZAM
+PKIR5		INC	JNUM		; KOVETKEZO JATEKOS
+		MOV     A,JNUM
+                CJNE    A,#9,PKIR1      ; HA MEG NEM ERT VEGET, UGRAS
+
+                MOV     A,BREG          ; JATEK SZAMANAK BETOLTESE
+                CJNE    A,#GAME_BULLMASTER,PKIR9
+                SJMP    PKIR7
+PKIR9           JNB     CRIC_GROUP,PKIR7       ; HA NEM CRICKET, UGRIK
+                JB      P_VEGE,PKIR7           ; HA VEGE, NEM IRJA KI
+                LCALL   LED_KIJ                ; LED-EK KIJELZESE
+PKIR7           POP     SNUM
+                POP     JATAKT
+                POP     JNUM
+                POP     NUM
+		POP	DREG
+            ;    POP     PSW
+		SETB	EA
+		RET
+
+; A RUTIN AZ EGYSZERES ERTEKET A SZORZOBYTE-AL SZOROZZA
+; BEJOVO ADAT: CTPONT - EGYSZERES DOBASERTEK
+;              DREG   - SZORZO
+; KIMENO ADAT A CTPONT-BAN
+;>PONTSZOR
+PONTSZOR        PUSH	DREG
+		MOV	A,DREG		; A-BA A SZORZO
+                JNZ     PSZ2            ; HA DREG NEM NULLA, UGRIK
+                MOV     CTPONT,#0       ; CTPONT:=0
+                SJMP    PSZV
+PSZ2		ANL	A,#0CH		; AZ UTOLSO KET BITET TOROLJUK
+		JNZ	PSZV		; NEM KELL SZOROZNI
+		MOV	A,#0		; TORLES
+PSZ1		ADD	A,CTPONT
+        	DA	A
+		DJNZ	DREG,PSZ1	; DREG-SZER OSSZEADJUK
+		MOV	CTPONT,A	; A SZORZATOT MENTJUK
+PSZV		POP	DREG
+	        RET
+
+; EGY SZAMJEGY KITOLTESE
+; BEJOVO ADATOK : JNUM - AZ AKT. JATEKOS SZAMA
+;		  B    - HANYADIK DIGITET KELL KITOLTENI
+;		  NUM  - A HET SZEGMENST VEZERLO BITEKET TARTALMAZZA
+;		  SEG  - A KIVANT TABLAZAT ALAPCIMENEK JELZOSZAMA
+;		  SEG = 0 --> DG11
+;		  SEG = 1 --> DKF1
+;		  SEG = 2 --> DG51
+;		  SEG = 3 --> DKA1
+;>EGYSZAM
+
+EGYSZAM         CLR     EA                ; IT LETILTAS
+                PUSH	B
+                PUSH    CREG
+		PUSH	NUM
+		PUSH	DPL
+		PUSH	DPH
+		MOV	DPTR,#DG11
+		MOV	A,SEG		; HA SEG=0, AKKOR JO IS A CIM
+		JZ	EG1
+		MOV	DPTR,#DKF1
+		DEC	A
+		JZ	EG1
+		MOV	DPTR,#DG51
+		DEC	A
+		JZ	EG1
+		MOV	DPTR,#DKA1
+EG1		MOV	A,JNUM		; AZ AKT. JATEKOS SZAMA
+		DEC	B		; A DIGITEK SZAMA NULAVAL KEZD
+		DEC	A		; A JATEKOS 1-EL KEZD, A TABLA 0-VAL
+		RL	A
+		RL	A		; SZORZAS NEGGYEL
+		ADD	A,B		; A SZAMJEGY SZAMANAK HOZZAADASA
+		SWAP	A		; SZORZAS 16-TAL, KESZ AZ ELTOLASI CIM
+		MOV	CREG,#7		; MIND A 7 SZEGMENSRE
+                MOV     R3,A            ; R3-BA MENTJUK
+ES1             MOV     A,R3            ; NE LEGYEN ELTOLAS DPTR-HEZ
+		MOVC	A,@A+DPTR	; FELSO BYTE BETOLTES
+		MOV	R0,A		; SZEGMENS CIM ELMENTES
+		INC	DPTR		;
+                MOV     A,R3            ; UJRA AZ ELTOLAST
+		MOVC	A,@A+DPTR	; ALSO BYTE BETOLTES
+                MOV     B,A              ; MENTJUK A MASZKOT
+
+		MOV	A,NUM		; A KIJELZENDO SZAM BETOLTESE
+		RLC	A		; CARRY-BE A KOVETKEZO BIT
+		MOV	NUM,A		; A SZAMOT ELMENTJUK
+                JC      ES1A            ; HA VOLT CARRY, GYUJTAS
+                MOV     A,B             ; A-BA A MASZKOT
+                CPL     A               ; OLTASHOZ NEGALNI KELL
+                ANL     A,@R0           ; A CIMMEL OSSZEFESULNI
+                MOV     @R0,A           ; VISSZA A REGISZTERBE
+                SJMP    ES1B            ; SZEGMENS KIOLTVA, TOVABB
+ES1A            MOV     A,B             ; A-BA A MASZKOT
+                ORL     A,@R0           ; A CIMMEL OSSZEFESULNI
+                MOV     @R0,A           ; VISSZA A REGISZTERBE
+
+ES1B		INC	DPTR		; A KOVETKEZO TABLACIM ELOKESZITESE
+		DJNZ	CREG,ES1	; VISSZA A CIKLUS ELEJERE
+		POP	DPH
+		POP	DPL
+		POP	NUM
+                POP     CREG
+		POP	B
+                SETB    EA              ; IT ENGEDELYEZES
+		RET
+
+
+CLEDT           DB      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                DB      20, 19, 18, 17, 16, 15, 21
+
+; CRCICKET LED KIGYUJTO RUTIN
+; BEJOVO ADAT: B - A PONT SZAMA   (15-21)
+;              JNUM - A JATEKOS SZAMA
+;>CRICLED
+CRICLED         PUSH    JNUM            ; JNUM VALTOZNI FOG
+                MOV     SEG,#0          ; DEFAULT:
+                MOV     A,JNUM   ; (1-8)
+                CLR     C        ; CARRY TORLESE
+                SUBB    A,#5     ; KIVONUNK OTOT
+                JC      CRL1     ; HA FELSO TABLA, UGRIK
+                CLR     C
+                MOV     A,JNUM
+                SUBB    A,#4
+                MOV     JNUM,A
+                MOV     SEG,#1
+CRL1            LCALL   LEDFILL
+                POP     JNUM
+                RET
+
+; EGY JATEKOS MEGADOTT LEDJEINEK KEZELESE
+; BEJOVO ADATOK : JNUM - AZ AKT. JATEKOS SZAMA
+;		  B    - HANYADIK LED-SORT KELL KITOLTENI (15-21)
+;		  NUM  - A GYUJTANDO LEDEK SZAMA (0-1-2-3)
+;		  SEG  - A KIVANT TABLAZAT ALAPCIMENEK JELZOSZAMA
+;		  SEG = 0 --> LED11F
+;		  SEG = 1 --> LED11A
+;		  SEG = 2 --> LEDZF
+;		  SEG = 3 --> LEDZA
+;>LEDFILL
+LEDFILL         CLR   EA
+       	        PUSH	B
+		PUSH	NUM
+		PUSH	DPL
+		PUSH	DPH
+
+		MOV	A,B		; ATTESSZUK B-T A-BA
+		MOV	B,#15		; ENNYIVEL KELL CSOKKENTENI
+		CLR	C		; CARRY LEGYEN 0, MERT AZT IS KIVONJA
+		SUBB	A,B             ; KONVERTALAS 0-6 TARTOMANYBA
+		MOV	B,A		; VISSZATOLTJUK, B KORRIGALVA VAN
+                MOV     A,SEG
+                JNB     A1,NM02         ; HA SEG=0, SEG=1 : UGRIK
+                MOV     A,NUM
+                SJMP    NM0
+NM02            MOV     A,NUM           ; A-BAN LEGYEN
+                JNB     LED_INV,NM0     ; HA NEM KELL INVERTALNI, UGRAS
+	 	CPL     A		; NUM-A LEDEK SZAMA KONVERTALJUK
+                ANL     A,#00000011B    ; UTOLSO KET BIT MARAD
+NM0		MOV	NUM,#0		; KEZDJUK UGY, HOGY SEMMI NEM EG
+		JZ	NM1		; HA A=0, AKKOR JO IS
+		MOV	NUM,#1		; A=1 ESETEN
+		DEC	A
+		JZ	NM1
+		MOV	NUM,#3		; A=2 ESETEN
+		DEC	A
+		JZ	NM1
+		MOV	NUM,#7		; A=3 ESETEN
+
+NM1		MOV	DPTR,#LED11F	; SZEGMENSCIM SZAMITAS
+		MOV	A,SEG		; HA SEG=0, AKKOR JO IS A CIM
+		JZ	LF1
+		MOV	DPTR,#LED11A
+		DEC	A
+		JZ	LF1
+		MOV	DPTR,#LEDZF
+		DEC	A
+		JZ	LF1
+		MOV	DPTR,#LEDZA
+LF1		MOV	A,JNUM		; AZ AKT. JATEKOS SZAMA
+		DEC	A		; A JATEKOS 1-EL KEZD, A TABLA 0-VAL
+		RL	A
+		RL	A
+		RL	A		; SZORZAS 8-TAL
+		ADD	A,B		; B-T HOZZAADJUK
+		RL	A
+		RL	A
+		RL	A		; SZORZAS MEG NYOLCCAL
+		MOV	CREG,#3		; MIND A 3 LEDRE MEGCSINALJUK
+                MOV     R3,A            ; A-T MENTENI KELL
+ED1		MOV     A,R3
+		MOVC	A,@A+DPTR	; FELSO BYTE BETOLTES
+		MOV	R0,A		; MSB ELMENTES
+		INC	DPTR		;
+                MOV     A,R3
+		MOVC	A,@A+DPTR		; ALSO BYTE BETOLTES
+		MOV	B,A
+
+		MOV	A,NUM		; A KIJELZENDO SZAM BETOLTESE
+		RRC	A		; CARRY-BE A KOVETKEZO BIT
+		MOV	NUM,A		; A SZAMOT ELMENTJUK
+                JC      ED1A            ; HA VOLT CARRY, GYUJTAS
+                MOV     A,B             ; A-BA A MASZKOT
+                CPL     A               ; OLTASHOZ NEGALNI KELL
+                ANL     A,@R0           ; A CIMMEL OSSZEFESULNI
+                MOV     @R0,A           ; VISSZA A REGISZTERBE
+                SJMP    ED1B            ; SZEGMENS KIOLTVA, TOVABB
+ED1A            MOV     A,B             ; A-BA A MASZKOT
+                ORL     A,@R0           ; A CIMMEL OSSZEFESULNI
+                MOV     @R0,A           ; VISSZA A REGISZTERBE
+
+ED1B 		INC	DPTR		; A KOVETKEZO TABLACIM ELOKESZITESE
+		DJNZ	CREG,ED1	; VISSZA A CIKLUS ELEJERE
+		POP	DPH
+		POP	DPL
+		POP	NUM
+		POP	B
+                SETB    EA
+		RET
+
+; EGY JATEKOS AKARMELYIK LEDJENEK KEZELESE
+; BEJOVO ADATOK : JNUM - AZ AKT. JATEKOS SZAMA  (1-4)
+;		  B    - HANYADIK LED-SORT KELL KITOLTENI (15-21)
+;		  NUM  - A GYUJTANDO LED SZAMA (1-2-3)
+;		  SEG  - A KIVANT TABLAZAT ALAPCIMENEK JELZOSZAMA
+;		  SEG = 0 --> LED11F
+;		  SEG = 1 --> LED11A
+;		  SEG = 2 --> LEDZF
+;		  SEG = 3 --> LEDZA
+;>KILED
+
+KILED           CLR     EA
+                PUSH	B
+		PUSH	JNUM
+		PUSH	NUM
+		PUSH	SEG
+		PUSH	DPL
+		PUSH	DPH
+		MOV	A,B		; ATTESSZUK B-T A-BA
+		MOV	B,#15		; ENNYIVEL KELL CSOKKENTENI
+		CLR	C		; CARRY LEGYEN 0, MERT AZT IS KIVONJA
+		SUBB	A,B
+		MOV	B,A		; VISSZATOLTJUK, B KORRIGALVA VAN
+		MOV	A,NUM		; NUM-T KONVERTALJUK
+		MOV	NUM,#0		; KEZDJUK UGY, HOGY SEMMI NEM EG
+		JZ	NM11		; HA A=0, AKKOR JO IS
+		MOV	NUM,#1		; A=1 ESETEN
+		DEC	A
+		JZ	NM11
+		MOV	NUM,#2		; A=2 ESETEN
+		DEC	A
+		JZ	NM11
+		MOV	NUM,#4		; A=3 ESETEN
+		DEC	A
+		JZ	NM11
+		MOV	NUM,#5		; A=3 ESETEN
+		DEC	A
+		JZ	NM11
+		MOV	NUM,#6		; A=3 ESETEN
+		DEC	A
+		JZ	NM11
+		MOV	NUM,#7		; A=3 ESETEN
+NM11		MOV	DPTR,#LED11F	; SZEGMENSCIM SZAMITAS
+		MOV	A,SEG		; HA SEG=0, AKKOR JO IS A CIM
+		JZ	LF11
+		MOV	DPTR,#LED11A
+		DEC	A
+		JZ	LF11
+		MOV	DPTR,#LEDZF
+		DEC	A
+		JZ	LF11
+		MOV	DPTR,#LEDZA
+LF11		MOV	A,JNUM		; AZ AKT. JATEKOS SZAMA
+		DEC	A		; A JATEKOS 1-EL KEZD, A TABLA 0-VAL
+		RL	A
+		RL	A
+		RL	A		; SZORZAS 8-TAL
+		ADD	A,B		; B-T HOZZAADJUK
+		RL	A
+		RL	A
+		RL	A		; SZORZAS MEG NYOLCCAL
+		MOV	CREG,#3		; MIND A 3 LEDRE MEGCSINALJUK
+                MOV     R3,A
+ED11		MOV     A,R3
+		MOVC	A,@A+DPTR	; FELSO BYTE BETOLTES
+		MOV	R0,A		; MSB ELMENTES
+		INC	DPTR		;
+                MOV     A,R3
+		MOVC	A,@A+DPTR	; ALSO BYTE BETOLTES
+		MOV	B,A		; DPTR-BEN A SZEGMENS CIME
+
+		MOV	A,NUM		; A KIJELZENDO SZAM BETOLTESE
+		RRC	A		; CARRY-BE A KOVETKEZO BIT
+		MOV	NUM,A		; A SZAMOT ELMENTJUK
+                JC      ED11A            ; HA VOLT CARRY, GYUJTAS
+                MOV     A,B             ; A-BA A MASZKOT
+                CPL     A               ; OLTASHOZ NEGALNI KELL
+                ANL     A,@R0           ; A CIMMEL OSSZEFESULNI
+                MOV     @R0,A           ; VISSZA A REGISZTERBE
+                SJMP    ED11B            ; SZEGMENS KIOLTVA, TOVABB
+ED11A           MOV     A,B             ; A-BA A MASZKOT
+                ORL     A,@R0           ; A CIMMEL OSSZEFESULNI
+                MOV     @R0,A           ; VISSZA A REGISZTERBE
+
+ED11B		INC	DPTR		; A KOVETKEZO TABLACIM ELOKESZITESE
+		DJNZ	CREG,ED11	; VISSZA A CIKLUS ELEJERE
+		POP	DPH
+		POP	DPL
+		POP	SEG
+		POP	NUM
+		POP	JNUM
+		POP	B
+                SETB    EA
+		RET
+
+;********************************************************
+; ERMEVIZSGALO BEOLVASAS
+
+;>COIN  - PENZBEDOBAST FIGYELO RUTIN. GYAKRAN MEG KELL HIVNI, HOGY
+; ELKAPJA A PENZBEDOBAST
+; COIN           JB      MECH_SEL,COIN_MEC   ; HA MECHANIKUS, UGRAS
+;                RET
+
+COI15N          LJMP   COI5N
+COI15           LJMP    COI5            ; ($25)
+
+COIN            PUSH    A               ; #2
+                PUSH    PSW
+                PUSH    AREG
+                PUSH    SNUM            ; VAN JEL, KREDIT NOVELES, KIIRAS
+                PUSH    NUM
+                PUSH    JNUM
+                SETB    NOCRED          ; #1, ALAPHELYZETBEN NINCS KREDIT NOV.
+                READ0                   ; #7, ERMEVIZSGALO OLVASAS
+                CPL     A               ; #1, INVERTALAS
+                ANL     A,#COIN_MASK    ; #2, EGYEB JELEK TORLESE
+                JZ      COI15           ; #2, NEM OLVASOTT, UGRAS
+                LCALL   TIM3MS          ; PRELLMENTESITES
+                READ0                   ; ERMEVIZSGALO OLVASAS
+                CPL     A               ; INVERTALAS
+                ANL     A,#COIN_MASK    ; EGYEB JELEK TORLESE
+                JZ      COI15           ; HA MOST NINCS JEL, HAZARD VOLT
+                LCALL   KR_SZAM_NOV     ; SZAMLALOK NOVELESE
+                JB      NOCRED,COI14    ; HA NEM UJ KREDIT, NINCS KIJELZES
+                LCALL   KREDSZAM
+                LCALL   DARTKIJ
+            ;   SJMP    COI14
+COI14A      ;   LCALL   PONTSZAM        ; AKT. KEDIT MENNYISEG KIIRATASA
+            ;   LCALL   DARTKIJ
+
+COI14           DELAY   MVTIME          ; VARAKOZAS INICIALIZALASA
+COI6            JB      FLAGTIM,COI8    ; HA LETELIK AZ IDO, ERMEVIZSG. HIBA!
+                LCALL   TIM3MS
+                READ0                   ; ERMEVIZSGALO OLVASAS
+                CPL     A               ; INVERTALAS
+                ANL     A,#COIN_MASK        ; EGYEB JELEK TORLESE
+                JNZ     COI6            ; HA MEG TART A JEL, TOVABB
+                LCALL   TIM3MS          ; PRELLMENTESITES
+                READ0                   ; MASODIK RAOLVASAS
+                CPL     A               ; INVERTALAS
+                ANL     A,#COIN_MASK    ; EGYEB JELEK TORLESE
+                JNZ     COI6            ; HA MEG TART A JEL, VISSZA
+                SJMP    COI6A           ; HA NULLA, TOVABB LEPHET
+COI8            LCALL   ERR_COIN        ; ERMEVIZSGALO HIBAUZENET
+
+; JATEK ESETEN EGY IDEIG A KIJELZON TARTJUK A KREDITET
+COI6A           JB      NOCRED,COI12
+                JB      P_DEMO,COI12    ; DEMO FAZISNAL AZONNALI KILEPES
+
+COI9            MOV     JNUM,#9         ; ERMEVIZSG. OK, VISSZATERHET
+
+COI12
+COI5            POP     JNUM           ;
+                POP     NUM            ;
+                POP     SNUM           ;
+                POP     AREG
+COI5N           POP     PSW            ; IDE UGRIK, HA NEM VOLT JEL
+                POP     A              ;
+                RET                    ; (*37)
+
+; SZAMLALO NOVELO RUTIN
+; BEJOVO ADAT: DPTR- A SZAMLALO CIME
+;>COUNTER_INC
+COUNTER_INC    ;   RET
+                  PUSH  PSW
+                  MOV   PSW,#RBANK0     ; 0. REG. BANK
+                  PUSH    DPL
+                  PUSH    DPH
+                  PUSH    DPL           ; CSAK BELSO HASZNALATRA MENTI EL
+                  PUSH    DPH
+                  MOVX    A,@DPTR
+                  MOV     R1,A        ; 1. BYTE
+                  INC     DPTR
+                  MOVX    A,@DPTR
+                  MOV     R2,A        ; 2. BYTE
+                  INC     DPTR
+                  MOVX    A,@DPTR       ; 3. BYTE
+                  ADD     A,#1
+                  DA      A
+                  MOV     R3,A        ; ELMENTES AREG-BE
+                  MOV     A,R2
+                  ADDC    A,#0
+                  DA      A
+                  MOV     R2,A        ; ELMENTES
+                  MOV     A,R1
+                  ADDC    A,#0
+                  DA      A             ; A EGYBOL MENTHETO IS
+                  POP     DPH
+                  POP     DPL
+                  MOVX    @DPTR,A
+                  INC     DPTR
+                  MOV     A,R2
+                  MOVX    @DPTR,A
+                  INC     DPTR
+                  MOV     A,R3
+                  MOVX    @DPTR,A
+                  POP     DPH
+                  POP     DPL
+                  LCALL   COUNTER_SAVE
+                  POP     PSW
+                  RET
+
+; B ALAPJAN CIMET KONVERTAL (LSB)
+KR_FL_CONV      DB   0, 80H, 90H, A0H, B0H, C0H, D0H
+
+; MEGADJA, HOGY A BEJOTT ERMERE MENNYI KREDIT ADANDO
+; BEJOVO ADAT : A - KRED_FLOW MEZON BELULI ELTOLAS
+; BEJOVO ADAT : B - ERMEVIZSGALO CSATORNA SORSZAMA
+; KIMENO ADAT : CREG - ADANDO KREDITEK SZAMA
+;>KRED_LEP
+KRED_LEP       PUSH     A
+               PUSH     A                ; KETSZER KELL ELMENTENI
+         ;     MOV      A,B
+               MOV      DPTR,#KR_FL_CONV
+               MOV      A,B                ; A KRED_FLOW MEZO KIVALASZTASA
+               MOVC     A,@A+DPTR          ; A KR_FLOW MEZO ELTOLASA
+         ;     LCALL    P_DISP             ; DEBUG
+               MOV      DPL,A              ; DPL-BE AZ LSB
+               POP      A                  ; KR_FLOW-N BELULI ELTOLAS
+               ADD      A,DPL              ; HOZZAADJUK
+         ;     LCALL    P_DISP
+               MOV      DPL,A
+           ;   ORL      DPL,A              ; AZ LSB-HEZ
+               MOV      DPH,#KRFL_MSB      ; MSB A DPH-BA
+               MOVX     A,@DPTR            ; A-BA AZ ADANDO KREDIT SZAMA
+               MOV      CREG,A             ; KIMENO ADAT CREG-BEN LESZ
+         ;     LCALL    P_DISP
+               POP      A
+        ;      MOV      CREG,#1         ; &PROBA
+               RET
+
+; KREDIT SZAMLALO NOVELES
+; BEJOVO ADAT A- EBBOL NEZZUK MEG, HOGY KULCSOS-E?
+;>KR_SZAM_NOV
+KR_SZAM_NOV     PUSH    TILT
+                PUSH    PSW
+                PUSH    B
+                PUSH    AREG
+                PUSH    CREG
+                CLR     TILT
+                PUSH    A
+                MOV     A,#H_PENZBE      ; PENZHANG KELL
+                LCALL   H_EFFEKT
+                                         ; EEPROM ENGEDELYEZES
+                POP     A
+                CJNE    A,#KEY_MASK,COI20    ; HA NEM KULCSOS, UGRIK
+                LCALL   KEY_SZAML_NOV   ; KULCSOS SZAMLALOT NOVELJUK
+                MOV     CREG,#1         ; EZ MINDIG 1 KREDITET AD
+                LJMP    COI_NOV
+
+COI20      ;    MOV     B,#1
+           ;    LJMP    COI_CC          ; PROBA MEGOLDAS
+
+                RRC     A               ; JOBBRA KILEPTETJUK A CARRY-N AT
+                JNC     COI_C1          ;
+                JB      MECH_SEL,COI_C1A  ; HA MECH., UGRAS
+                MOV     B,#5            ; CH5 JELE
+                LJMP    COI_CC
+COI_C1A         MOV     B,#1            ; MECHANIKUS ESETEN CH1 LESZ BELOLE
+                LJMP    COI_CC           ;
+COI_C1          RRC     A               ; CH1 JELE
+                JNC     COI_C2          ;
+                JB      MECH_SEL,COI_C4A  ; HA MECH., UGRAS
+                MOV     B,#1            ; CH1 JELE
+                LJMP    COI_CC
+COI_C4A         MOV     B,#2            ; MECHANIKUSNAL CH2 LESZ
+                LJMP    COI_CC
+COI_C2          RRC     A               ;
+                JNC     COI_C3          ;
+                MOV     B,#3            ; CH3 JELE
+                LJMP    COI_CC
+COI_C3          RRC     A               ;
+                JNC     COI_C4          ;
+                MOV     B,#4            ; CH4 JELE
+                LJMP    COI_CC
+COI_VC          LJMP    COI25           ; UGRASI SEGEDCIM
+COI_C4          RRC     A               ;
+                JNC     COI_VC       ; HA NEM VOLT ERTELMES JEL, KILEP
+                MOV     B,#2            ; CH5 JELE
+
+COI_CC          LCALL   ERM_SZAML_NOV         ; ERMESZAMLALO NOVELHETO
+                XRBYTE  ERME_BA,B             ; ERMEALLAS BETOLTESE
+                LCALL   KRED_LEP              ; MEGNEZZUK, MENNYI KREDIT JAR
+                ADD     A,#1                  ; A-BAN VISSZAJON AZ ERMESZAM
+                MOV     AREG,A                ; MENTES AREG-BE
+                XBYTEKI ERME_BA,B,AREG        ; VISSZAIRATJUK A MEMORIABA
+                PUSH    DPL                   ; A KIIRATASI CIMET MENTJUK
+                PUSH    AREG                  ; A KIIRANDO ERTEK
+                XRBYTE  MAX_BASE,B            ; A MAX. ERMESZAM BETOLTESE
+                CJNE    A,AREG,COI_N1A        ; HA MEG NEM ERTE EL, UGRAS
+                XBYTEKI ERME_BA,B,#0          ; HA ELERTE, NULLAZZUK
+                POP     A                     ; AZ ELOZO ERTEKET TORLI
+                CLR     A
+                PUSH    A                     ; EZ AZ UJ KIIRATASI ERTEK
+COI_N1A         POP     A
+                POP     NUM                   ; DPL - BOL MENTETTUK
+                LCALL   BYTE_SAVE           ; ELMENTJUK
+
+COI_NOV         MOV     A,CREG              ; HA NULLA, NINCS NOVELES
+                JZ      COI25
+                MOV     A,KREDIT         ; KREDIT VIZSGALAT,KREDIT BCD-KODBAN
+                CJNE    A,#99H,COI23     ; HA ELERTE A 99-ET NEM VESZI TOVABB
+                SJMP    COI24            ; KREDIT=99, NEM NOVELI TOVABB
+COI23           ADD     A,#1             ; KREDIT SZAM NOVELES
+                DA      A
+COI24           MOV     KREDIT,A         ; KREDIT NOVELES
+                XBYTE   AJA_KRED,#0      ; MEGNEZZUK, KELL-E AJANDEK KREDITET
+                JZ      COI27            ; NEM KELL ADNI, UGRAS
+                MOV     AREG,A           ; MENTJUK AZ OSSZEHASONLITASHOZ
+                XBYTE   ERME_BON,#0      ; BEHOZZUK AZ EDDIGIT
+                ADD     A,#1             ; NOVELJUK
+                DA      A                ; CD KORR.
+                CLR     TILT
+                CJNE    A,AREG,COI28     ; HA MEG NEM ERTE EL, UGRAS
+                SETB    TILT             ; JELZI, HOGY EXTRA LETT
+                MOV     A,KREDIT         ; A KREDITET NOVELJUK AZ AJANDEKKAL
+                CJNE    A,#99H,COI24A    ; HA MEG NEM 99, HOZZAADHAT
+                SJMP    COI24B           ; NEM NOVELHETI
+COI24A          ADD     A,#1
+                DA      A
+COI24B          MOV     KREDIT,A
+                CLR     A             ; NULLAZZUK A RESZ-SZAMLALOT
+COI28           MOV     AREG,A        ; MENTESHEZ AT KELL TENNI
+                XBYTEKI   ERME_BON,#0,AREG  ; MENTJUK A
+
+COI27           XBYTEKI  KR_EDIT,#0,KREDIT  ; KIIRAS A MEMORIABA
+COI21           CLR     NOCRED          ; MAR BIZTOSAN VAN KREDIT
+                DJNZ    CREG,COI_NOV
+
+                SJMP    COI25
+
+COI25           POP     CREG            ; IDE UGRIK, HA NEM NOVELUNK
+                POP     AREG
+             ;  LCALL   MONEY_SAVE      ; KIIRAS EEPROMBA
+                LCALL   KRED_SAVE
+                MOV     B,#B_THANK      ; DEFAULT: THANK YOU
+                JNB     TILT,COI_SPE
+                MOV     B,#B_EXTRA
+COI_SPE         LCALL   B_PLAYER
+
+COIV1           POP     B
+                POP     PSW
+                POP     TILT
+             ;   EEPDIS
+                RET
+
+; EGGYEL NOVELI A NULLAZHATO KULCSOS KREDIT SZAMLALOT
+;>KEY_SZAML_NOV
+KEY_SZAML_NOV     MOV      DPTR,#KEY_NAPI     ; KULCSOS NAPI KREDIT SZAMLALO
+                  LCALL    COUNTER_INC
+
+                  MOV      DPTR,#KEY_ALL     ; KULCSOS OSSZES KREDIT SZAMLALO
+                  LCALL    COUNTER_INC
+                  RET
+
+; EGGYEL NOVELI AZ ERMESZAMLALOKAT
+BASE_CONV   DB    0, 0, 3, 6, 9, 12, 15      ; ELTOLAS A BAZISCIMHEZ
+;>ERM_SZAML_NOV
+ERM_SZAML_NOV     CBYTE    BASE_CONV,B    ; A-BA TESSZUK A LEENDO ELTOLAST
+                  MOV      DPTR,#CH1_NAPI ; AZ ELSO SZAMLALOTOL KEZDJUK
+                  ADD      A,DPL          ; HOZZAADJUK AZ ELTOLAST
+                  MOV      DPL,A          ; VISSZA A CIMMUTATOBA
+                  LCALL    COUNTER_INC    ; A MEGCIMZETT SZAMLALO NEVELESE
+
+                  CBYTE    BASE_CONV,B    ; A-BA TESSZUK A LEENDO ELTOLAST
+                  MOV      DPTR,#CH1_ALL  ; AZ ELSO SZAMLALOTOL KEZDJUK
+                  ADD      A,DPL          ; HOZZAADJUK AZ ELTOLAST
+                  MOV      DPL,A          ; VISSZA A CIMMUTATOBA
+                  LCALL    COUNTER_INC    ; A MEGCIMZETT SZAMLALO NOVELESE
+                  RET
+
+NOSCOREBE       BELAM   IZNOSCORE1
+                BELAM   IZNOSCORE2
+                RET
+
+;****************************************
+; NYILAK SZUBRUTIN A-BAN BEJOVO SZAMNAK MEGFELELO NYILAT VILAGIT KI
+; BEJOVO ADAT: DREG-BEN A KIGYUJTANDO NYILAK SZAMA
+;>NYILAK
+
+NYILAK          CLR     EA
+                PUSH    DREG
+                PUSH    NUM
+                PUSH    JNUM
+                PUSH    B
+                MOV     NUM,#0
+                MOV     JNUM,#1
+
+                MOV     B,#17
+                MOV     SEG,#2
+                LCALL   LEDFILL
+                MOV     B,#17
+                MOV     SEG,#3
+                LCALL   LEDFILL
+
+                MOV     B,#16
+                MOV     SEG,#2
+                LCALL   LEDFILL
+                MOV     SEG,#3
+
+                LCALL   LEDFILL
+                MOV     B,#15
+                MOV     SEG,#2
+                LCALL   LEDFILL
+                MOV     SEG,#3
+                LCALL   LEDFILL         ; LEDEK KIOLTVA
+
+                MOV     A,DREG
+                JZ      NY3             ; NINCS KIIRATAS
+                MOV     NUM,#3
+                MOV     JNUM,#1
+                MOV     B,#15
+                MOV     SEG,#2
+                LCALL   LEDFILL
+                MOV     SEG,#3
+                LCALL   LEDFILL
+                MOV     A,DREG
+                DEC     A
+                MOV     DREG,A
+                JZ      NY3             ; DREG=1 VOLT, UGRAS
+                MOV     B,#16
+                MOV     SEG,#2
+                LCALL   LEDFILL
+                MOV     SEG,#3
+                LCALL   LEDFILL
+                MOV     A,DREG
+                DEC     A
+                JZ      NY3             ; DREG=2 VOLT, UGRAS
+                MOV     B,#17
+                MOV     SEG,#2
+                LCALL   LEDFILL
+                MOV     SEG,#3
+                LCALL   LEDFILL
+NY3             SETB    EA
+                POP     B
+                POP     JNUM
+                POP     NUM
+                POP     DREG
+                RET
+
+; HA SEG=2, AKKOR A FELSO ZOLDEKET GYUJTJA, HA SEG=3, AKKOR AZ ALSOKAT
+;>Z_NYILAK
+Z_NYILAK        CLR     EA
+                PUSH    DREG
+                PUSH    B
+                PUSH    JNUM
+                PUSH    NUM
+                PUSH    SEG
+                MOV     NUM,#0
+                MOV     JNUM,#1
+                MOV     B,#17
+                MOV     SEG,#2
+                LCALL   LEDFILL
+                MOV     B,#17
+                MOV     SEG,#3
+                LCALL   LEDFILL
+
+                MOV     B,#16
+                MOV     SEG,#2
+                LCALL   LEDFILL
+                MOV     SEG,#3
+
+                LCALL   LEDFILL
+                MOV     B,#15
+                MOV     SEG,#2
+                LCALL   LEDFILL
+                MOV     SEG,#3
+                LCALL   LEDFILL         ; LEDEK KIOLTVA
+
+                POP     SEG
+                MOV     A,DREG
+                JZ      Z_NY3             ; NINCS KIIRATAS
+                MOV     NUM,#3
+                MOV     JNUM,#1
+                MOV     B,#15
+                LCALL   LEDFILL
+                MOV     A,DREG
+                DEC     A
+                MOV     DREG,A
+                JZ      Z_NY3             ; DREG=1 VOLT, UGRAS
+                MOV     B,#16
+                LCALL   LEDFILL
+                MOV     A,DREG
+                DEC     A
+                JZ      Z_NY3             ; DREG=2 VOLT, UGRAS
+                MOV     B,#17
+                LCALL   LEDFILL
+Z_NY3           SETB    EA
+                POP     NUM
+                POP     JNUM
+                POP     B
+                POP     DREG
+                RET
+
+;*******************************************
+; KORSZAM RUTIN A KORSZAMLALOT JELZI KI KET DIGITEN
+; BEJOVO ADAT : AKTKOR -BEN A KIJELZENDO SZAM (BCD-BEN)
+; HA AZ ELSO SZAMJEGY NULLA, A DIGITEN NEM JELENIK MEG SEMMI
+;>KORSZAM
+KORSZAM         CLR      EA
+                PUSH     JNUM
+                PUSH     NUM
+                PUSH     DREG
+                MOV      DREG,AKTKOR    ; BEIRJUK, HATHA IGY KELL KIJELEZNI
+                MOV      A,AKTKOR       ; ELSO SZAMJEGY VIZSGALATA
+                ANL      A,#0F0H        ; ALSO NEGY BIT NULLAZASA
+                JNZ      KRS1           ; HA NEM NULLA, UGRIK
+                MOV      A,AKTKOR
+                ANL      A,#0FH         ; FELSO NEGY BIT NULLAZASA
+                ORL      A,#0A0H        ; FELSO NEGY BIT BEALLITASA
+                MOV      DREG,A         ; DREG ELOKESZITESE
+KRS1            MOV	 SEG,#1
+		MOV	 JNUM,#2
+		MOV	 B,#3
+                MOV      A,DREG          ; EGYESEKET JELZI KI
+		LCALL	 BCD2SEG
+                MOV      NUM,A
+		LCALL	 EGYSZAM
+                MOV	 SEG,#3
+		LCALL	 EGYSZAM         ; EGYESEK KIJELEZVE
+
+                MOV	 SEG,#1
+		MOV	 JNUM,#2
+		MOV	 B,#2
+                MOV      A,DREG
+                ANL      A,#0F0H           ; EGYESEKET MEGTARTJUK
+                SWAP     A                 ; BITNEGYESEKET MEGCSERELJUK
+		LCALL	BCD2SEG
+                MOV     NUM,A
+		LCALL	EGYSZAM
+                MOV	SEG,#3
+		LCALL	EGYSZAM
+                POP     DREG
+                POP     NUM
+                POP     JNUM
+                SETB    EA
+                RET
+
+;>KORKIJ
+KORKIJ          MOV     A,DREG          ; EGYESEKET JELZI KI
+		LCALL	BCD2SEG
+                MOV     NUM,A
+                MOV	SEG,#1          ; FELSO KORSZAM KIJELZO
+		MOV	JNUM,#2
+		MOV	B,#3
+		LCALL	EGYSZAM
+                MOV	SEG,#3
+		LCALL	EGYSZAM         ; EGYESEK KIJELEZVE
+                MOV	SEG,#1
+		MOV	JNUM,#2
+		MOV	B,#2
+		LCALL	EGYSZAM
+                MOV	SEG,#3
+		LCALL	EGYSZAM
+                RET
+
+;****************************************
+; PONTSZAM KIJELZES
+; BEJOVO ADAT:     NUM  - TIZESEK+EGYESEK (BCD)
+;                  SNUM - SZAZASOK        (BCD)
+;                  JNUM - JATEKOS SZAMA   (1-9, 9-KOZEPSO HARMAS)
+;>PONTSZAM
+PONTSZAM        PUSH    B
+                PUSH    SNUM
+                PUSH    NUM
+                PUSH    JNUM
+                MOV     A,JNUM
+                DEC     A               ; JNUM ALAPJAN SZEGMENST SZAMOLUNK
+                ANL     A,#08H          ;
+                JNZ     KZ1             ; A KIIRAS A KOZEPSO SZAMRA MEGY
+                MOV     A,JNUM
+                DEC     A
+                ANL     A,#04H          ;
+                JNZ     AT1             ; KIIRAS AZ ALSO TABLARA
+                MOV     A,JNUM          ; KIIRAS A FELSO TABLARA
+                DEC     A
+                MOV     JNUM,A          ; JNUM ES SEG ERTEKE BEALLITVA
+                MOV     SEG,#0
+                SJMP    PNT1             ; UGRAS A TENYLEGES KIIRASRA
+KZ1             MOV     JNUM,#0
+                MOV     SEG,#3          ; ALSO KOZEPSO SZAMRA IRAS BEALLITVA
+                SJMP    PNT2
+AT1             MOV     A,JNUM          ; KIIRAS AZ ALSO TABLARA
+                DEC     A
+                ANL     A,#03H          ;
+                MOV     JNUM,A          ; JNUM ES SEG ERTEKE BEALLITVA
+                MOV     SEG,#2
+                SJMP    PNT1
+
+PNT2            INC     JNUM            ; IDE CSAK KREDIT KIIRASKOR UGRIK
+                PUSH    SNUM
+                PUSH    NUM
+                XBYTEKI KREDBUF,#0,SNUM     ; SNUM ELMENTVE
+                XBYTEKI KREDBUF,#1,NUM      ; NUM IS ELMENTVE
+                MOV     B,#1
+                MOV     A,SNUM          ; SZAZASOK BETOLTESE
+                LCALL   BCD2SEG
+                MOV     NUM,A
+                LCALL   EGYSZAM         ; SZAZASOK KIJELEZVE
+
+                POP     NUM
+                PUSH    NUM
+                MOV     B,#3
+                MOV     SNUM,NUM
+                MOV     A,NUM
+                LCALL   BCD2SEG
+                MOV     NUM,A
+                LCALL   EGYSZAM         ; EGYESEK KIJELEZVE
+
+                MOV     B,#2
+                MOV     A,SNUM
+                SWAP    A
+                LCALL   BCD2SEG
+                MOV     NUM,A
+                LCALL   EGYSZAM         ; TIZESEK KIJELEZVE
+                MOV     SEG,#1          ; FELSO TABLARA IRUNK
+                DEC     JNUM
+                POP     NUM
+                POP     SNUM
+                                        ; KEZDODHET A TENYLEGES KIIRAS
+PNT1            INC     JNUM            ; JATEKOS SZAMA VISSZAALLITVA
+                PUSH    NUM
+                MOV     B,#1
+                MOV     A,SNUM
+                LCALL   BCD2SEG
+                MOV     NUM,A
+                LCALL   EGYSZAM         ; SZAZASOK KIJELEZVE
+
+                POP     NUM
+                MOV     SNUM,NUM
+                MOV     A,NUM
+                MOV     B,#3
+                LCALL   BCD2SEG
+                MOV     NUM,A
+                LCALL   EGYSZAM         ; EGYESEK KIJELEZVE
+
+                MOV     A,SNUM
+                SWAP    A
+                MOV     B,#2
+                LCALL   BCD2SEG
+                MOV     NUM,A
+                LCALL   EGYSZAM         ; TIZESEK KIJELEZVE
+                POP     JNUM
+                POP     NUM
+                POP     SNUM
+                POP     B
+                RET
+
+; A KREDIT MENNYISEGET IRJA KI AZ ALSO KIJELZO KOZEPSO DIGITJEIRE
+; BEJOVO  ADAT  : KREDIT
+;>KREDSZAM
+KREDSZAM        PUSH    JNUM
+                PUSH    NUM
+                PUSH    SEG
+                PUSH    B
+                JNB     P_FREEGAME,KDSZ1
+                PLAYER  3,1             ; ALSO KIJELZO KOZEPE
+                MOV     A,#3CH          ; A "FRE" SZO KIIRATASA
+                LCALL   SETUPJAT
+                SJMP    KDSZ2
+KDSZ1           MOV     JNUM,#1
+                MOV     SEG,#3
+                MOV     B,#1
+                MOV     NUM,#0
+                JB      P_TEST,KDSZ1_A ; HA TESZT VAN, NEM KELL C-BETU
+                MOV     NUM,#1AH       ; "C" - BETU
+KDSZ1_A         LCALL   EGYSZAM
+                MOV     B,#2            ; TIZESEK
+                MOV     A,KREDIT
+                SWAP    A
+                LCALL   BCD2SEG
+                MOV     NUM,A
+                LCALL   EGYSZAM
+                MOV     B,#3            ; EGYESEK
+                MOV     A,KREDIT
+                LCALL   BCD2SEG
+                MOV     NUM,A
+                LCALL   EGYSZAM
+KDSZ2           POP     B
+                POP     SEG
+                POP     NUM
+                POP     JNUM
+                RET
+
+; A BESZORULT MEZO SZAMAT IRJA KI AZ ALSO KIJELZO KOZEPERE
+;>FIELD_SZAM
+FIELD_SZAM      PUSH    JNUM
+                PUSH    NUM
+                PUSH    SEG
+                PUSH    B
+                PUSH    A
+                MOV     A,DREG          ; DREG ALAPJAN BETUIRAS
+                CJNE    A,#1,TERT3      ; HA NEM SZIMPLA, UGRAS
+                MOV     NUM,#0AH
+                SJMP    TERT4
+TERT3           CJNE    A,#2,TERT5     ; HA NEM SZIMPLA, UGRAS
+                MOV     NUM,#0CH
+                SJMP    TERT4
+TERT5           CJNE    A,#3,TERT6     ; HA NEM SZIMPLA, UGRAS
+                MOV     NUM,#0BH
+                SJMP    TERT4
+TERT6           MOV     NUM,#0AH
+
+TERT4           MOV     A,NUM
+                LCALL   BCD2SEG
+                MOV     NUM,A           ; A SZAMBOL SZEGMENS VEZERLO BITEKET
+                MOV     JNUM,#1
+                MOV     SEG,#3
+                MOV     B,#1
+                LCALL   EGYSZAM
+                MOV     B,#2            ; TIZESEK
+                MOV     A,CTPONT
+                SWAP    A
+                LCALL   BCD2SEG
+                MOV     NUM,A
+                LCALL   EGYSZAM
+                MOV     B,#3            ; EGYESEK
+                MOV     A,CTPONT
+                LCALL   BCD2SEG
+                MOV     NUM,A
+                LCALL   EGYSZAM
+                POP     A
+                POP     B
+                POP     SEG
+                POP     NUM
+                POP     JNUM
+                RET
+
+; A RUTIN ELOLTJA A KIJELZO OSSZES LAMPAJAT. KIJELZO INICIALIZALASRA
+; HASZNALJUK.
+;>KILAMPA
+KILAMPA         CLR     EA             ; IT LETILTAS
+                PUSH    DREG
+                PUSH    SEG
+                PUSH    JNUM
+                PUSH    NUM
+                MOV	DREG,#3
+		MOV	SEG,#2
+KL2		MOV	JNUM,#8
+KL1		MOV	NUM,#1
+		LCALL	LAMPA
+		DJNZ	JNUM,KL1
+		DEC	SEG
+		DJNZ	DREG,KL2
+                POP     NUM
+                POP     JNUM
+                POP     SEG
+                POP     DREG
+                SETB    EA              ; IT ENGEDELYEZES
+		RET
+
+;*******************************************************
+; EGY JATEKOS MEGADOTT LAMPAINAK GYUJTASA, ELOLTASA
+; BEJOVO ADATOK : JNUM - AZ AKT. JATEKOS SZAMA
+;		  NUM  - NUM=1 --> KIALSZIK, NUM=0--> LAMPA KUGYUL
+;		  SEG  - A KIVANT TABLAZAT ALAPCIMENEK JELZOSZAMA
+;		  SEG = 0 --> SPCIM
+;		  SEG = 1 --> NRCIM
+;		  SEG = 2 --> TCRCIM
+;>LAMPA
+
+LAMPA		CLR     EA
+                PUSH	B	; A HASZNALT REGISZTEREK ELMENTESE
+	;	PUSH	SEG
+		PUSH	DPL
+		PUSH	DPH
+                PUSH    NUM
+		MOV	DPTR,#SPCIM
+		MOV	A,SEG		; HA SEG=0, AKKOR JO IS A CIM
+		JZ	LP1
+		MOV	DPTR,#NRCIM
+		DEC	A
+		JZ	LP1
+		MOV	DPTR,#TCRCIM    ; #INVERT
+           ;    XRL     NUM,#1          ; 6906xx GEPekhez invertAlni !!
+LP1             XRL     NUM,#1          ; 7. SZERIATOL EZ KELL
+                MOV	A,JNUM		; AZ AKT. JATEKOS SZAMA
+		DEC	A		; A JATEKOS 1-EL KEZD, A TABLA 0-VAL
+		RL	A		; SZORZAS 2-VEL
+                MOV     R3,A            ; A REG. MENTESE
+EP1		MOVC	A,@A+DPTR	; FELSO BYTE BETOLTES
+		MOV	R0,A		; MSB ELMENTES
+		INC	DPTR		;
+                MOV     A,R3
+		MOVC	A,@A+DPTR	; ALSO BYTE BETOLTES
+		MOV	B,A
+                MOV     A,NUM
+                JZ      EP1A            ; HA NULLA, OLTANI KELL
+                MOV     A,B
+                ORL     A,@R0
+                MOV     @R0,A
+                SJMP    EP1B
+
+EP1A            MOV     A,B
+                CPL     A
+                ANL     A,@R0
+                MOV     @R0,A
+
+EP1B		POP     NUM
+                POP	DPH
+		POP	DPL
+	;	POP	SEG
+		POP	B		; ELMENTETT REGISZTEREK VISSZA
+                SETB    EA
+		RET
+
+;****************************************
+
+;***********************************************************
+; BCD SZAMROL SZEGMENS MEGHAJTASRA VALO ATALAKITAS
+; BEJOVO ADAT: A-BAN
+; KIMENO ADAT: A-BAN
+; HA A=0AH, AKKOR NEM FOG EGYIK SZEGMENS SEM VILAGITANI.
+;
+;>BCD2SEG
+BCD2SEG         PUSH	DPH		; HASZNALT REGISZTEREK MENTESE
+		PUSH	DPL
+		MOV	DPTR,#BCDSEG	; KONVERZIOS TABLA CIME
+		ANL     A,#0FH		; FELSO NEGY BIT TORLESE
+		MOVC	A,@A+DPTR
+		POP	DPL
+		POP	DPH
+		RET
+
+; A FELSO KIJELZOBE SZOVEGET IR
+; A - 22 - BULL
+SBULL         MOV       A,#22
+              LCALL     CIMEK
+              RET
+
+; HIBAUZENETET JELENIT MEG
+
+ERRMSG      MOV       A,#23
+            LCALL     CIMEK
+            RET
+
+; A KIJELZORE IRT UZENETET TORLI
+CLRDISP     MOV       A,#24
+            LCALL     CIMEK
+            RET
+
+; AZ AKTUALIS TESZT FAZIS NEVE
+; BEJOVO ADAT : A -  A FAZIS SORSZAMA ( 1 - 9)
+; DPTR-BEN A SEGEDTABLA CIME
+;>CIMEK
+CIMEK          PUSH     DPH
+               PUSH     DPL
+               PUSH     JNUM
+               PUSH     SEG
+               MOV      DPTR,#JATCIM
+               MOV      SEG,#1          ; FELSO KIJELZO
+               MOV      JNUM,#1         ;
+               SJMP     NEVIR
+
+;>SETUPMESS
+SETUPMESS      PUSH     DPH
+               PUSH     DPL
+               PUSH     JNUM
+               PUSH     SEG
+               MOV      DPTR,#SMESS
+               MOV      SEG,#2          ; FELSO KIJELZO
+               MOV      JNUM,#4         ;
+               INC      A               ; ITT NEM NULLAVAL KEZDUNK !!
+               SJMP     NEVIR
+
+;>SETJATCIM
+SETJATCIM      PUSH     DPH
+               PUSH     DPL
+               PUSH     JNUM
+               PUSH     SEG
+               MOV      DPTR,#JATCIM
+               SJMP     NEVIR
+
+;>SETUPJAT
+SETUPJAT       PUSH     DPH
+               PUSH     DPL
+               PUSH     JNUM
+               PUSH     SEG
+               MOV      DPTR,#S_HELP
+               SJMP     NEVIR
+;>SETUP_CH
+SETUP_CH       PUSH     DPH
+               PUSH     DPL
+               PUSH     JNUM
+               PUSH     SEG
+               MOV      DPTR,#SET_CH
+               SJMP     NEVIR
+
+;>STAT_CIM
+STAT_CIM       PUSH     DPH
+               PUSH     DPL
+               PUSH     JNUM
+               PUSH     SEG
+               MOV      DPTR,#ST_HELP
+               MOV      SEG,#1          ; FELSO KIJELZO
+               MOV      JNUM,#1         ;
+               SJMP     NEVIR
+
+
+;>TSTCIM
+TSTCIM         PUSH     DPH
+               PUSH     DPL
+               PUSH     JNUM
+               PUSH     SEG
+               MOV      DPTR,#TESTCIM
+          ;    MOV      SEG,#1          ; FELSO KIJELZO
+          ;    MOV      JNUM,#1         ;
+          ;    SJMP     NEVIR
+
+
+NEVIR          JZ       CMK1         ; HA A=0, AKKOR KILEP
+               PUSH     AREG
+               PUSH     BREG
+               PUSH     CREG
+               PUSH     B
+               PUSH     NUM
+               DEC      A               ; ELTOLAST SZAMITUNK
+               RL       A
+               RL       A               ; A-T SZOROZZUK NEGGYEL
+               PUSH     A
+               MOVC     A,@A+DPTR       ; BEHOZZUK AZ ADATOT ( 1. BETU)
+               MOV      AREG,A          ; ATMENETI TAROLAS
+               INC      DPTR
+               POP      A
+               PUSH     A
+               MOVC     A,@A+DPTR       ; BEHOZZUK AZ ADATOT ( 2. BETU)
+               MOV      BREG,A          ; ATMENETI TAROLAS
+               INC      DPTR
+               POP      A
+               MOVC     A,@A+DPTR       ; BEHOZZUK AZ ADATOT ( 3. BETU)
+               MOV      CREG,A          ; ATMENETI TAROLAS
+               MOV      B,#1            ; 1. BETU
+               MOV      NUM,AREG        ;
+       ;       MOV      A,NUM           ; KIIRANDO ADAT TAROLASA
+       ;       XBYTEKI  KREDBUF,#0
+               LCALL    EGYSZAM         ; KIIRATAS
+               MOV      B,#2            ; 2. BETU
+               MOV      NUM,BREG        ;
+               LCALL    EGYSZAM         ; KIIRATAS
+               MOV      B,#3            ; 3. BETU
+               MOV      NUM,CREG        ;
+               LCALL    EGYSZAM         ; KIIRATAS
+               LCALL  DARTKIJ
+               POP      NUM
+               POP      B
+               POP      CREG
+               POP      BREG
+               POP      AREG
+               POP      SEG
+               POP      JNUM
+               POP      DPL
+               POP      DPH
+CMK1           RET
+
+; GYARI BEALITAS BETOLTESE
+; A GYARI ALAPERTEKEKET ALLITJA BE A JATEKOK PARAMETEREIKENT
+; A SZAMLALOKAT NEM MODOSITJA
+;>LOADFACT
+LOADFACT        PUSH     B
+                MOV      B,#60H         ; CIKLUSSZAMLALO
+                JB       LEZARVA,LDF2   ; HA KELL GYARI SZAM, UGRAS
+                MOV      B,#5DH         ; A GYARI SZAM MARAD
+LDF2            MOV      DPTR,#FACT_SET ; FORRAS TERULET ADATCIME
+                MOV      R0,#0          ; CEL TERULET ALSO BYTE-JA
+                MOV      P2,#MEM_MSB    ; TERULET KEZDETENEK FELSO BYTE-JA
+LDF1            CLR      A              ; ELTOLAS NULLAZASA
+                MOVC     A,@A+DPTR      ; BYTE BEOLVASAS
+                MOVX     @R0,A          ; ATIRAS A CEL TERULETRE
+                INC      DPTR
+                INC      R0
+                DJNZ     B,LDF1
+
+                XBYTEKI  ZENE_SOR,#0,#1
+                XBYTEKI  ERME_CH1,#0,#0
+                XBYTEKI  ERME_CH2,#0,#0
+                XBYTEKI  ERME_CH3,#0,#0
+                XBYTEKI  ERME_CH4,#0,#0
+                XBYTEKI  ERME_CH5,#0,#0
+            ;   XBYTEKI  ERME_CH6,#0,#0
+                POP      B
+           ;     LCALL    SET_CHAMP              ; CHAMPIONSHIP BEALLITASOK
+                RET
+
+;>SET_CHAMP
+SET_CHAMP      XBYTE  CHAMP_SET,#0       ; MEGNEZZUK A VERSENY ALLAPOTOT
+               JZ     SC_END             ; HA NULLA, NINCS VERSENY
+               XBYTEKI  REP_LEHET,#0,#200 ; ENNYISZER LEHET REPLAYT NYOMNI
+               SETB   CHAMP              ; HA NEM NULLA, AKKOR ROVID HANGOK
+               DEC    A
+               JZ     SC_END             ; HA =1 VOLT, CSAK A HANGOK ROVIDEK
+               PUSH   A                  ; KESOBB SZUKSEG LESZ RA
+               SETB   NO_LIMIT           ; HA =2 VOLT, NINCS KORHATAR
+               POP      A
+               DEC      A                ; HA =2 VOLT, KILEPHET
+               JZ       SC_END
+         ;     XBYTEKI  STAT_EN,#0,#1   ; STATISZTIKA ENGEDELYEZVE
+SC_END         RET
+
+; MEGNEZI, HOGY KELL-E AZ EEPROMOT INICIALIZALNI ?
+;>IS_VIRGIN
+IS_VIRGIN       READ0                   ; ERMEVIZSGALO OLVASAS
+                CPL     A               ; INVERTALAS
+                ANL     A,#00010100B    ; EGYEB JELEK TORLESE
+                CJNE    A,#00010100B,IS_V1 ; MEGEGYEZIK A KIVANT JELLEL ?
+                RET                     ; VISSZATERES, INICIALIZALAS KELL
+IS_V1           CLR     A               ; NEM INICIALIZALA JEL, A=0
+                RET
+
+; AZ EEPROM ELSO UZEMBEALLITASAKOR KELL MEGHIVNI
+; GYARI SZAM ES SZAMLALO INICIALIZALASOK CELJABOL+GYARI ADATOK
+;>VIRGIN
+VIRGIN   ; MOV  A,#11H                  ; JELEZZUK, HOGY BELEPETT
+         ; KIIR
+           MOV     A,#H_PENZBE           ; FIGYELMEZTETO HANG
+           LCALL   H_EFFEKT
+           LCALL   TIM100MS
+           MOV     A,#H_PENZKEY         ; FIGYELMEZTETO HANG
+           LCALL   H_EFFEKT
+           LCALL  MEM_INIT              ; LEGYEN TISZTA A TERULET
+           SETB   LEZARVA               ; EZ JELZI, HOGY A GYARI SZAM IS MEGY
+           LCALL  LOADFACT              ; GYARI BEALLITASOK BETOLTESE
+           MOV    KREDIT,#0             ; KREDIT SZAMLALOT IS TORLI
+           CLR    A                     ; TORLESEK
+           MOV    DPTR,#KR_EDIT
+           MOVX   @DPTR,A
+           LCALL  SETUPSAVE             ; A BETOLTESEK ELMENTESE
+           MOV     A,#H_PENZKEY         ; FIGYELMEZTETO HANG
+           LCALL   TIM500MS
+           LCALL   H_EFFEKT
+           LCALL   TIM100MS
+           MOV     A,#H_PENZBE           ; FIGYELMEZTETO HANG
+           LCALL   H_EFFEKT
+VIR1A      LCALL   VAN_COIN
+           JNZ     VIR1A
+           RET
+
+  ;         .INCLUDE  DARTEST7.INC
+
+T_LDCB         DB      0, 20, 19, 18, 17, 16, 15, 21
+T_LDCJ         DB      0, 21, 15, 16, 17, 18, 19, 20
+
+; LED OSZLOPOK VILAGITASA
+; BEJOVO ADAT: DREG - AZ OSZLOP SORSZAMA ( 1-7, 1>A KULSO, 7>A BELSO OSZLOP)
+; BEJOVO ADAT: NUM - 0>ELOLTAS, 3>KIGYUJTAS
+;>LEDCOL
+
+LEDCOL            PUSH  B
+                  PUSH  SEG
+                  PUSH  JNUM               ; JNUM-OT HASZNALNI FOGJUK
+                  PUSH  BREG
+                  MOV   BREG,#1
+LDC4              MOV   JNUM,BREG          ; KEZDJUK AZ ELSO JATEKOSSAL
+                  MOV   A,JNUM             ; CSOKKENTJUK
+                  DEC   A
+                  MOV   SEG,#0             ; ALAPHELYZETBEN KISEBB, MINT 5
+                  JNB   A2,LDC1            ; HA NINCS BIT2, AKKOT JNUM KICSI
+                  MOV   SEG,#1             ; SEG VALTOZO BEALLITVA
+LDC1              MOV   A,JNUM
+                  DEC   A
+                  ANL   A,#03H            ; MARAD A 0-3 KOZTI ERTEK
+                  ADD   A,#1
+                  MOV   JNUM,A            ; VISSZATOLTES JNUM-BA
+                  JB    A0,LDC2           ; HA JNUM PARATLAN, UGRIK
+                  CBYTE T_LDCJ,DREG       ; OSZLOPSZAM KONVERZIO
+                  SJMP  LDC3              ; UGRAS   A VEGERE
+LDC2              CBYTE T_LDCB,DREG       ; IDE AKKOR UGRIK, HA JNUM PARATLAN
+LDC3              MOV   B,A
+                  LCALL KILED
+                  MOV   A,BREG
+                  ADD   A,#1
+                  MOV   BREG,A
+                  CJNE  A,#9,LDC4         ; HA MEG NINCS KESZ MINDEN JATEKOS
+                  POP   BREG
+                  POP   JNUM
+                  POP   SEG
+                  POP   B
+                  RET
+
+
+;>ROWDEMO1
+ROWDEMO1
+              MOV      DREG,#1
+ROD1          MOV      A,#1
+              LCALL    LEDROW
+              LCALL  DARTKIJ
+              LCALL    DEMODELAY
+              JB       LEPHET,ROW1_V
+              CLR      A
+              LCALL    LEDROW
+              MOV      A,DREG
+              ADD      A,#1
+              MOV      DREG,A
+              CJNE     A,#13,ROD1
+              LCALL  DARTKIJ
+              MOV      DREG,#11
+ROD2          MOV      A,#1
+              LCALL    LEDROW
+              LCALL  DARTKIJ
+              LCALL    DEMODELAY
+              JB       LEPHET,ROW1_V
+              CLR      A
+              LCALL    LEDROW
+              DJNZ     DREG,ROD2
+              LCALL  DARTKIJ
+ROW1_V        RET
+
+ ; OSZLOPVILLOGTATO DEMO
+;>COLDEMO1
+COLDEMO1      PUSH     NUM
+              PUSH     DREG
+              MOV      DREG,#1          ; FUGGOLEGES LEDSOR SZALAD BEFELE
+CLD1          MOV      NUM,#7           ; KIGYUJTAS
+              LCALL    LEDCOL
+              LCALL    DARTKIJ
+              LCALL    DEMODELAY
+              JB       LEPHET,COL1_V
+              MOV      NUM,#0          ; ELOLTAS
+              LCALL    LEDCOL
+              INC      DREG
+              MOV      A,DREG
+              CJNE     A,#8,CLD1
+              LCALL    DARTKIJ
+              MOV      DREG,#6         ; MOST VISSZAFELE SZALAD
+CLD11         MOV      NUM,#7
+              LCALL    LEDCOL
+              LCALL    DARTKIJ
+              LCALL    DEMODELAY
+              JB       LEPHET,COL1_V
+              MOV      NUM,#0
+              LCALL    LEDCOL
+              DJNZ     DREG,CLD11
+              LCALL    DARTKIJ
+COL1_V        POP      DREG
+              POP      NUM
+              RET
+
+COLDEMO       LCALL     COLDEMO1
+              LCALL     COLDEMO2
+              RET
+
+ ; OSZLOPVILLOGTATO DEMO
+;>COLDEMO2
+COLDEMO2      PUSH      NUM
+              PUSH      DREG
+              MOV      DREG,#1
+CLD21         MOV      NUM,#7
+              LCALL    LEDCOL
+              LCALL  DARTKIJ
+              LCALL    DEMODELAY
+              JB       LEPHET,COL2_V
+              INC      DREG
+              MOV      A,DREG
+              CJNE     A,#8,CLD21
+              LCALL  DARTKIJ
+              MOV      DREG,#7          ; MOST VISSZAFELE LETOROLJUK
+CLD22         MOV      NUM,#0
+              LCALL    LEDCOL
+              LCALL  DARTKIJ
+              LCALL    DEMODELAY
+              DJNZ     DREG,CLD22
+              LCALL  DARTKIJ
+COL2_V        POP      DREG
+              POP      NUM
+              RET
+
+; A KIJELZOKON BUBIREKOK SZALADNAK KIFELE IRANYBAN
+;>BUBOREK
+; A FUTAS 5 FAZISBOL ALL
+
+BUBA      EQU        3AH        ; BUBOREK KARAKTER PATTERN, ALSO
+BUBF      EQU       0C6H        ; BUBOREK KARAKTER PATTERN, FELSO
+
+DEMDEL    EQU       1           ; DEMO ALATTI LEPESSEBESSEG TIZEDBEN
+
+BUBOREK1
+          MOV   NUM,#BUBF         ; NUM-BA A KIIRANDO PATTERN
+          MOV   DREG,#1
+BUB3      LCALL BUFINI            ; KIJELZOTORLES
+          MOV   A,DREG
+          DEC   A                 ; A TABLAZAT NULLA ELTOLASSAL KEZDODIK
+          SWAP  A                 ; A-T SZOROZZUK 16-TAL
+          MOV   DPTR,#T_BUBO      ; TABLAZAT ALAPCIME
+          ADD   A,DPL             ; CIM ALSO BYTE HOZZAADAS
+          MOV   DPL,A
+          MOV   A,DPH
+          ADDC  A,#0              ; CARRY HOZZAADAS
+          MOV   DPH,A
+          MOV   AREG,#4
+BUB1      CLR   A
+          MOVC  A,@A+DPTR         ; BYTE BETOLTES
+          INC   DPTR              ; EZ A BYTE NEM KELL
+          CLR   A
+          MOVC  A,@A+DPTR         ; BYTE BETOLTES
+          MOV   JNUM,A            ; JNUM-BA MEGY
+          INC   DPTR
+          CLR   A
+          MOVC  A,@A+DPTR         ; BYTE BETOLTES
+          INC   DPTR              ; CIM NOVELES
+          MOV   B,A               ; B-BE MEGY
+          CLR   A
+          MOVC  A,@A+DPTR         ; BYTE BETOLTES
+          INC   DPTR
+          MOV   SEG,A             ; SEG-BE MEGY
+          MOV   A,B               ; B-T VIZSGALJUK
+          JZ    BUB2              ; HA NULLA, NEM HVJUK MEG A RUTINT
+          LCALL EGYSZAM
+          MOV   A,SEG
+          ADD   A,#2              ; AZ ALSO KIJELZORE IS KIKULDJUK
+          MOV   SEG,A             ; SEG NOVELVE KETTOVEL
+          LCALL EGYSZAM
+BUB2      DJNZ  AREG,BUB1
+              LCALL  DARTKIJ
+          LCALL DEMODELAY         ; KESLELTETES
+          JB    LEPHET,BUBO_V
+          MOV   A,DREG            ; CIKLUS SZAMLALO NOVELES
+          ADD   A,#1
+          MOV   DREG,A
+          CJNE  A,#6,BUB3         ; HA MEG NINCS MEG AZ OT LEPES, VISSZA
+BUBO_V    RET
+
+BUBOREK2
+          MOV   NUM,#BUBA          ; NUM-BA A KIIRANDO PATTERN
+          MOV   DREG,#1
+          LCALL BUFINI            ; KIJELZOTORLES
+BUB23     MOV   A,DREG
+          DEC   A                 ; A TABLAZAT NULLA ELTOLASSAL KEZDODIK
+          SWAP  A                 ; A-T SZOROZZUK 16-TAL
+          MOV   DPTR,#T_BUBO      ; TABLAZAT ALAPCIME
+          ADD   A,DPL             ; CIM ALSO BYTE HOZZAADAS
+          MOV   DPL,A
+          MOV   A,DPH
+          ADDC  A,#0              ; CARRY HOZZAADAS
+          MOV   DPH,A
+          MOV   AREG,#4
+BUB21     CLR   A
+          MOVC  A,@A+DPTR         ; BYTE BETOLTES
+          INC   DPTR              ; EZ A BYTE NEM KELL
+          CLR   A
+          MOVC  A,@A+DPTR         ; BYTE BETOLTES
+          MOV   JNUM,A            ; JNUM-BA MEGY
+          INC   DPTR
+          CLR   A
+          MOVC  A,@A+DPTR         ; BYTE BETOLTES
+          INC   DPTR              ; CIM NOVELES
+          MOV   B,A               ; B-BE MEGY
+          CLR   A
+          MOVC  A,@A+DPTR         ; BYTE BETOLTES
+          INC   DPTR
+          MOV   SEG,A             ; SEG-BE MEGY
+          MOV   A,B               ; B-T VIZSGALJUK
+          JZ    BUB22              ; HA NULLA, NEM HVJUK MEG A RUTINT
+          LCALL EGYSZAM
+          MOV   A,SEG
+          ADD   A,#2              ; AZ ALSO KIJELZORE IS KIKULDJUK
+          MOV   SEG,A             ; SEG NOVELVE KETTOVEL
+          LCALL EGYSZAM
+BUB22     DJNZ  AREG,BUB21
+              LCALL  DARTKIJ
+          LCALL DEMODELAY
+          JB    LEPHET,BUBO2_V
+          MOV   A,DREG            ; CIKLUS SZAMLALO NOVELES
+          ADD   A,#1
+          MOV   DREG,A
+          CJNE  A,#6,BUB23        ; HA MEG NINCS MEG AZ OT LEPES, VISSZA
+          MOV   NUM,#0            ; MOST TORLOJUK A KIJELZOKET
+          MOV   DREG,#5           ; VISSZAFELE HALADUNK
+BUB33     MOV   A,DREG
+          DEC   A                 ; A TABLAZAT NULLA ELTOLASSAL KEZDODIK
+          SWAP  A                 ; A-T SZOROZZUK 16-TAL
+          MOV   DPTR,#T_BUBO      ; TABLAZAT ALAPCIME
+          ADD   A,DPL             ; CIM ALSO BYTE HOZZAADAS
+          MOV   DPL,A
+          MOV   A,DPH
+          ADDC  A,#0              ; CARRY HOZZAADAS
+          MOV   DPH,A
+          MOV   AREG,#4
+BUB31     CLR   A
+          MOVC  A,@A+DPTR         ; BYTE BETOLTES
+          INC   DPTR              ; EZ A BYTE NEM KELL
+          CLR   A
+          MOVC  A,@A+DPTR         ; BYTE BETOLTES
+          MOV   JNUM,A            ; JNUM-BA MEGY
+          INC   DPTR
+          CLR   A
+          MOVC  A,@A+DPTR         ; BYTE BETOLTES
+          INC   DPTR              ; CIM NOVELES
+          MOV   B,A               ; B-BE MEGY
+          CLR   A
+          MOVC  A,@A+DPTR         ; BYTE BETOLTES
+          INC   DPTR
+          MOV   SEG,A             ; SEG-BE MEGY
+          MOV   A,B               ; B-T VIZSGALJUK
+          JZ    BUB32              ; HA NULLA, NEM HVJUK MEG A RUTINT
+          LCALL EGYSZAM
+          MOV   A,SEG
+          ADD   A,#2              ; AZ ALSO KIJELZORE IS KIKULDJUK
+          MOV   SEG,A             ; SEG NOVELVE KETTOVEL
+          LCALL EGYSZAM
+BUB32     DJNZ  AREG,BUB31
+              LCALL  DARTKIJ
+          LCALL DEMODELAY
+          JB    LEPHET,BUBO2_V
+          DJNZ  DREG,BUB33         ; CIKLUS SZAMLALO CSOKKENTES
+BUBO2_V   RET
+
+BUBOREK         LCALL   BUBOREK1
+                JB      LEPHET,BUB_V
+                LCALL   BUBOREK2
+BUB_V           RET
+
+
+; LEJATSSZA A "LET'S PLAY DART" SZOVEGET
+;>PLAYDART
+PLAYDART        PUSH    BREG
+                LCALL   BUFINI
+              LCALL  DARTKIJ
+                XBYTEKI  LETS,#0,#0    ; MUTATO NULLAZAS
+                ADNYIL   3
+                MOV      BREG,#44
+PLD9            LCALL    LETSPLAY
+                LCALL    DARTKIJ
+                LCALL    DEMODELAY
+                JB       LEPHET,PLA_V
+                LCALL    DEMODELAY      ; IDE KETSZERES IDO KELL
+                JB       LEPHET,PLA_V
+                DJNZ     BREG,PLD9
+                ADNYIL   0
+PLA_V           POP      BREG
+                RET
+
+;  FELIRAT KESZITO RUTIN
+;>LETSPLAY
+
+LETSPLAY     PUSH  AREG
+             PUSH  SEG
+             PUSH  NUM
+             PUSH  JNUM
+             PUSH  B
+             XBYTE LETS,#0              ; BEOLVASSUK A MUTATOT
+             ADD   A,#1
+             MOV   AREG,A               ; ATMENTJUK
+             XBYTEKI LETS,#0,AREG
+             CBYTE LETSP,AREG           ; KIIRANDO BYTE BEOLVASAS
+             MOV   NUM,A
+             MOV   B,#1
+             LCALL CHAR_WR
+             INC   AREG
+             CBYTE LETSP,AREG           ; KIIRANDO BYTE BEOLVASAS
+             MOV   NUM,A
+             MOV   B,#2
+             LCALL CHAR_WR
+             INC   AREG
+             CBYTE LETSP,AREG           ; KIIRANDO BYTE BEOLVASAS
+             MOV   NUM,A
+             MOV   B,#3
+             LCALL CHAR_WR
+             POP   B
+             POP   JNUM
+             POP   NUM
+             POP   SEG
+             POP   AREG
+             RET
+
+; A SZOVEG KARAKTEREIT MINDEN KIJELZORE KIIRJA
+;>CHAR_WR
+CHAR_WR      MOV   SEG,#0
+             MOV   JNUM,#1
+             LCALL EGYSZAM
+             MOV   JNUM,#2
+             LCALL EGYSZAM
+             MOV   JNUM,#3
+             LCALL EGYSZAM
+             MOV   JNUM,#4
+             LCALL EGYSZAM
+             MOV   SEG,#1
+             MOV   JNUM,#1
+             LCALL EGYSZAM
+             MOV   SEG,#2
+             MOV   JNUM,#1
+             LCALL EGYSZAM
+             MOV   JNUM,#2
+             LCALL EGYSZAM
+             MOV   JNUM,#3
+             LCALL EGYSZAM
+             MOV   JNUM,#4
+             LCALL EGYSZAM
+             MOV   SEG,#3
+             MOV   JNUM,#1
+             LCALL EGYSZAM
+             RET
+
+
+; LED SOROK KIGYUJTASA
+; BEJOVO ADAT: DREG - A GYUJTANDO SOR SZAMA (1-12, 1=A FELSO SOR)
+; BEJOVO ADAT: A    - KIGYUJTAS, ELOLTAS  (0=ELALSZIK, 1=KIGYUJT)
+;>LEDROW
+
+LEDROW          PUSH   BREG
+                PUSH   B
+                PUSH   NUM
+                PUSH   JNUM
+                MOV    NUM,#0
+                JZ     LDR7              ; HA A=0, UGRAS
+                CBYTE   T_LEDRNUM,DREG
+                MOV     NUM,A
+LDR7            CBYTE   T_LEDRJNUM,DREG
+                MOV   BREG,A
+                MOV   JNUM,BREG          ; KEZDJUK AZ ELSO JATEKOSSAL
+                MOV   A,JNUM             ; CSOKKENTJUK
+                DEC   A
+                MOV   SEG,#0             ; ALAPHELYZETBEN KISEBB, MINT 5
+                JNB   A2,LDR1            ; HA NINCS BIT2, AKKOT JNUM KICSI
+                MOV   SEG,#1             ; SEG VALTOZO BEALLITVA
+LDR1            MOV   A,JNUM
+                DEC   A
+                ANL   A,#03H            ; MARAD A 0-3 KOZTI ERTEK
+                ADD   A,#1
+                MOV   JNUM,A            ; VISSZATOLTES JNUM-BA
+                MOV   B,#15
+LDR3            LCALL KILED
+                MOV   A,B
+                ADD   A,#1
+                MOV   B,A
+                CJNE  A,#22,LDR3        ; MINDEN SZAMHOZ MEGCSINALJUK
+                INC   BREG
+                MOV   JNUM,BREG          ; KEZDJUK AZ ELSO JATEKOSSAL
+                MOV   A,JNUM             ; CSOKKENTJUK
+                DEC   A
+                MOV   SEG,#0             ; ALAPHELYZETBEN KISEBB, MINT 5
+                JNB   A2,LDR5            ; HA NINCS BIT2, AKKOT JNUM KICSI
+                MOV   SEG,#1             ; SEG VALTOZO BEALLITVA
+LDR5            MOV   A,JNUM
+                DEC   A
+                ANL   A,#03H            ; MARAD A 0-3 KOZTI ERTEK
+                ADD   A,#1
+                MOV   JNUM,A            ; VISSZATOLTES JNUM-BA
+                MOV   B,#15
+LDR4            LCALL KILED
+                MOV   A,B
+                ADD   A,#1
+                MOV   B,A
+                CJNE  A,#22,LDR4        ; MINDEN SZAMHOZ MEGCSINALJUK
+                POP   JNUM
+                POP   NUM
+                POP   B
+                POP   BREG
+                RET
+
+; LED TOMB KIVILAGITO RUTIN - EGY JATEKOS MINDEN LEDJET KIGYUJTJA
+; BEJOVO ADAT - JNUM - A JATEKOS SZAMA (1-8) 9- ZOLD NYILAK
+; BEJOVO ADAT : NUM=0>TORLES, NUM=3>KIGYUJTAS
+;>TOMBLED
+TOMBLED           PUSH   JNUM
+                  PUSH   DREG
+                  PUSH   NUM
+                  MOV    A,JNUM
+                  CJNE   A,#9,TBLB5          ; HA NEM 9, UGRAS
+                  MOV    A,NUM
+                  JZ     TBL3
+                  ADNYIL   3                ;
+                  SJMP     TBL2
+TBL3              ADNYIL   0            ; NUM=0 ESETEN NYILAK OLTASA
+                  SJMP     TBL2
+TBLB5             MOV   DREG,#15
+                  MOV   A,JNUM               ; CSOKKENTJUK
+                  DEC   A
+                  MOV   SEG,#0             ; ALAPHELYZETBEN KISEBB, MINT 5
+                  JNB   A2,JNM1            ; HA NINCS BIT2, AKKOT JNUM KICSI
+                  MOV   SEG,#1             ; SEG VALTOZO BEALLITVA
+JNM1              MOV   A,JNUM
+                  DEC   A
+                  ANL   A,#03H            ; MARAD A 0-3 KOZTI ERTEK
+                  ADD   A,#1
+                  MOV   JNUM,A            ; VISSZATOLTES JNUM-BA
+TBLB4             CBYTE CLEDT,DREG        ; LED SORREND KONVERZIO
+                  MOV   B,A
+                  LCALL LEDFILL
+                  MOV   A,DREG
+                  ADD   A,#1
+                  MOV   DREG,A
+                  CJNE  A,#22,TBLB4
+TBL2              POP   NUM
+                  POP   DREG
+                  POP   JNUM
+                  RET
+
+;>D_BILL
+D_BILL           DELAY  2               ; 2 TIZED A FAZISOK KOZOTT
+DBL2             JB     FLAGTIM,DBL1
+                 LCALL  VALKEY
+                 JZ     DBL2
+                 POP    DPL
+                 POP    DPH
+                 LCALL  BUFINI
+                 LCALL  DARTKIJ
+                 LJMP   TESTVEGE        ; KILEPHET
+DBL1             RET
+
+;  >DT_BILL
+DT_BILL          DELAY  4               ; 2 TIZED A FAZISOK KOZOTT
+DTBL2            JB     FLAGTIM,DTBL1
+                 LCALL  VALKEY
+                 JZ     DTBL2
+                 POP    DPL
+                 POP    DPH
+                 LCALL  BUFINI
+                 LCALL  DARTKIJ
+                 LJMP   TESTVEGE        ; KILEPHET
+DTBL1            RET
+
+;>V_BILL
+V_BILL           LCALL  VALKEY
+                 JZ     VBL1
+                 KEYCLR
+                 POP    DPL
+                 POP    DPH
+                 LCALL  BUFINI
+                 LCALL  DARTKIJ
+                 LJMP   TESTVEGE        ; KILEPHET
+VBL1             RET
+
+; A GEP BEALLITASAIT MENTI EL AZ EEPROMBA
+;>SETUPSAVE
+SETUPSAVE     CLR    EA                ; EEPROM IRAS KOZBEN IT TILTAS
+           ;   SETB   P17
+              PUSH   SNUM
+              PUSH   NUM
+              PUSH   DREG
+              PUSH   B                  ; A WRBYTE HASZNALJA
+              MOV    DPTR,#SETUP_DIS    ; MEGNEZI, IRHAT-E?
+              MOVX   A,@DPTR
+              CJNE   A,#55H,SS_EXIT     ; HA NEM IRHAT, KILEP
+              EEPEN
+              MOV    DPTR,#CH_SUM
+              CLR    A
+              MOVX   @DPTR,A            ; A CHECKSUM EDDIGI ERTEKET TOROLJUK
+              LCALL  CHECKSUM           ; A JELENLEGI SZAMOKRA SZAMOLJUK
+ ;            LCALL  KIIRAS
+              MOV    DPTR,#CH_SUM       ; A-BAN JON AZ EREDMENY
+              MOVX   @DPTR,A            ; BEIRJUK A TOBBI SZAM KOZE
+              MOV    SNUM,#0            ; EEPROM KEZDOCIME
+              MOV    DPTR,#MEMPLACE     ; KIIRANDO ADATHALMAZ ELSO ELEME
+              MOV    DREG,#32           ; 32*8 BYTE KIIRATAS (256 BYTE)
+STS1          LCALL  PAGEWRITE
+              MOV    A,SNUM
+              ADD    A,#8
+              MOV    SNUM,A
+              DJNZ   DREG,STS1
+           ;   EEPDIS
+SS_EXIT       POP    B
+              POP    DREG
+              POP    NUM
+              POP    SNUM
+           ;  CLR    P17
+              SETB   EA
+              RET
+
+;>KRED_SAVE
+KRED_SAVE    ;  SETB    P17
+                CLR     EA
+                PUSH    B
+                PUSH    NUM
+                MOV     NUM,#WR_        ; VEZERLOBYTE IRASHOZ
+		LCALL	CONT_BYTE       ; VEZERLOBYTE KIIRATAS
+                MOV     DPTR,#KR_EDIT
+		MOV	A,DPL           ; AZ ALSO BYTE LESZ AZ EPROM-BELI CIM
+		LCALL	WRBYTE          ; EEPROM CIM KIIRATAS
+                MOV     DPTR,#KR_EDIT
+		MOVX	A,@DPTR         ; BEOLVASSUK A KIIRANDO ADATOT
+		LCALL	WRBYTE
+                LCALL   STOP            ; STOP ALLAPOT KIIRAS
+             ;  CLR     P17
+                POP     NUM
+                POP     B
+                SETB    EA
+                RET
+
+; BEJOVO ADAT:  A - MENTENDO BYTE ERTEK
+; BEJOVO ADAT: NUM - EEPROM BELI CIM
+;>BYTE_SAVE
+BYTE_SAVE    ;  SETB    P17
+             ;  RET
+                CLR     EA
+                PUSH    B
+                PUSH    A               ; KIIRANDO ERTEK
+                PUSH    NUM
+                MOV     NUM,#WR_        ; VEZERLOBYTE IRASHOZ
+		LCALL	CONT_BYTE       ; VEZERLOBYTE KIIRATAS
+                POP     A               ; A NUM-BOL MENTETT A-BA JON VISSZA!!
+		LCALL	WRBYTE          ; EEPROM CIM KIIRATAS
+                POP     A
+		LCALL	WRBYTE          ; KIIRANDO ERTEK
+                LCALL   STOP            ; STOP ALLAPOT KIIRAS
+             ;  CLR     P17
+                POP     B
+                SETB    EA
+                RET
+
+
+; BEJOVO ADAT: DPTR - A MENTENDO SZAMLALO CIME
+; AZ EEPROM BELI CIM A DPL REGISZTERREL MEGEGYEZIK
+;>COUNTER_SAVE
+COUNTER_SAVE  ;  SETB    P17
+                PUSH    NUM
+                MOVX    A,@DPTR         ; ELSO BYTE
+                MOV     NUM,DPL         ; CIM
+                LCALL   BYTE_SAVE
+                INC     DPTR
+                MOVX    A,@DPTR         ; MASODIK BYTE
+                MOV     NUM,DPL         ; CIM
+                LCALL   BYTE_SAVE
+                INC     DPTR
+                MOVX    A,@DPTR         ; HARMADIK BYTE
+                MOV     NUM,DPL         ; CIM
+                LCALL   BYTE_SAVE
+                POP     NUM
+              ;  CLR     P17
+                RET
+
+; GYARI SZAM ELLENORZES - FACTORY NUMBER CHECKING
+;>FACT_CHECK
+FACT_CHECK     RET
+               PUSH   A
+               PUSH   AREG
+               MOV    DPTR,#G_GYARSZAM        ; EPROMBOL
+               CLR    A
+               MOVC   A,@A+DPTR              ; A_BAN AZ EPROM SZAMA
+               MOV    AREG,A                 ; MENTES
+               MOV    DPTR,#GYAR_SZAM
+               MOVX   A,@DPTR                ; EEPROMBOL
+               CJNE   A,AREG,FCT1            ; HA NEM EGYENLO, UGRAS
+               MOV    DPTR,#G_GYARSZAM        ; EPROMBOL
+               MOV    A,#1
+               MOVC   A,@A+DPTR              ; A_BAN AZ EPROM SZAMA
+               MOV    AREG,A                 ; MENTES
+
+               MOV    DPTR,#GYAR_SZAM+1
+               MOVX   A,@DPTR                ; EEPROMBOL
+               CJNE   A,AREG,FCT1            ; HA NEM EGYENLO, UGRAS
+               MOV    DPTR,#G_GYARSZAM        ; EPROMBOL
+               MOV    A,#2
+               MOVC   A,@A+DPTR              ; A_BAN AZ EPROM SZAMA
+               MOV    AREG,A                 ; MENTES
+               MOV    DPTR,#GYAR_SZAM+2
+               MOVX   A,@DPTR                ; EEPROMBOL
+               CJNE   A,AREG,FCT1            ; HA NEM EGYENLO, UGRAS
+               POP    AREG
+               POP    A
+               RET                      ; VISSZATERHET, NINCS HIBA
+
+FCT1          MOV     A,#H_SZIREN       ; HIBA, ITT RAGAD
+              LCALL   H_EFFEKT
+              LCALL   TIM500MS
+              SJMP    FCT1
+
+; KIMENO ADAT : A=0, HA NEM VOLT HIBA, A=1, HA CHECKSUM HIBA
+; CHECKSUM HIBA ESETEN A GEP HAROMSZOR RAOLVAS AZ EEPROMRA
+;>SETUPLOAD -EEPROM ADATOK BETOLTESE
+SETUPLOAD     CLR    EA
+           ;  SETB   P17
+              PUSH   SNUM
+              PUSH   NUM
+              PUSH   DREG
+              EEPEN
+              MOV    NUM,#WR_           ; VEZERLOBYTE IRASHOZ
+	      LCALL  CONT_BYTE		; START CONDITION
+              MOV    SNUM,#0            ; EEPROM KEZDOCIME
+	      MOV    A,SNUM		; A KEZDOCIMET KIIRJUNK
+	      LCALL  WRBYTE		; BYTE KIIRAS
+              MOV    NUM,#RD_
+	      LCALL  CONT_BYTE		; START CON. OLVASASHOZ
+              MOV    DPTR,#MEMPLACE     ; KIIRANDO ADATHALMAZ ELSO ELEME
+              MOV    DREG,#255          ; (32*8) BYTE BEOLVASAS
+RTS1          LCALL  RDBYTE
+              MOVX   @DPTR,A            ; KIIRAS A MEMORIABA
+              LCALL  MAST_ACK           ; NYUGTAZZUK AZ UTOLJARA VETT BYTEOT
+              INC    DPTR               ; CEL TERULET CIMNOVELES
+              DJNZ   DREG,RTS1          ; CIKLUS
+              LCALL  RDBYTE             ; LEGUTOLSO BYTE
+              MOVX   @DPTR,A            ; KIIRAS A MEMORIABA
+              LCALL  STOP               ; EZUTAN MAR STOP KELL
+              MOV    DPTR,#CH_SUM      ; A BEOLVASOTT CHECKSUM ERTEKET
+              MOVX   A,@DPTR           ; ATTESSZUK A DREG-BE
+              MOV    DREG,A            ; A BEOLVASOTTAT ELMENTJUK
+              CLR    A
+              MOV    DPTR,#CH_SUM
+              MOVX   @DPTR,A           ; TOROLJUK A HELYET
+              LCALL  CHECKSUM          ; MEGHIVJUK A BEOLVASOTTRA
+              CJNE   A,DREG,STPL3
+              CLR    A                 ; OK JELZES A-BA
+              SJMP   STPL3A
+STPL3         MOV    A,#1              ; NEM EGYEZETT, HIBAJELZES
+STPL3A        PUSH    A                ; KILEPO ERTEK MENTESE
+              XBYTE   KR_EDIT,#0       ; AZ AKT. KREDIT ERTEKET
+              MOV     KREDIT,A         ; BETOLTJUK A KREDIT VALTOZOBA
+              XBYTE   MEG_ORZ,#0       ; MEGNEZZUK, MEG KELL-E ORIZNI
+              JNZ     RTS3             ; MEG KELL, NEM TOROLJUK
+              CLR     A
+              MOV     KREDIT,A          ; KREDIT TORLES
+              XBYTEKI  KR_EDIT,#0,KREDIT
+              XBYTEKI  ERME_BON,#0,#0    ; NULLAZZUK A MEMORIABAN IS
+RTS3          XBYTE  CR_MINDZAR,#0
+              MOV    C,A0
+              MOV    MINDZAR,C          ; BIT MOZGATAS
+              XBYTE  CR_GYZAR,#0
+              MOV    C,A0
+           ;  LCALL  KIIRAS8
+              MOV    MINDKI,C
+              CLR    CHAMP
+              CLR    NO_LIMIT
+              LCALL  SET_CHAMP          ; CHAMPIONSHIP MOD BEALLITAS
+;             XBYTE  CHAMP_SET,#0       ; MEGNEZZUK A VERSENY ALLAPOTOT
+;             JZ     RTSA1              ; HA NULLA, NINCS VERSENY
+;             SETB   CHAMP              ; HA NEM NULLA, AKKOR ROVID HANGOK
+;             DEC    A
+;             JZ     RTSA1
+;             SETB   NO_LIMIT           ; HA 2 VOLT, NINCS KORHATAR
+RTSA1         LCALL  ERMKRED_TOLT
+          ;   EEPDIS
+              MOV    DPTR,#SETUP_DIS
+              MOV    A,#55H
+              MOVX   @DPTR,A            ; SETUPSAVE ENGEDELYEZES KIIRATAS
+              POP    A
+              POP    DREG
+              POP    NUM
+              POP    SNUM
+              SETB   EA
+         ;    CLR    P17
+              RET
+
+; AZ EEPROMBOL BEOLVASOTT ERME-KREDIT ARANY ALAPJAN
+; INICIALIZALJA A MAXERME VALTOZOKAT
+;>ERMKRED_TOLT
+ERMKRED_TOLT  PUSH   B
+              PUSH   SNUM
+              PUSH   NUM
+              MOV    B,#6               ; MIND A HAT CSATORNARA VEGREHAJTJUK
+MXE2A         XRBYTE ERM_BASE,B         ; CHx ARANY ADATOT BEOLVASSUK
+              MOV    NUM,A              ; MENTES NUM-BA
+              SWAP   A                  ; TETRAD CSERE
+              ANL    A,#0FH             ; AZ ALSO TETRAD MARADJON
+MXE1A         MOV    SNUM,A
+              XBYTEKI   MAX_BASE,B,SNUM
+              ANL    NUM,#0FH           ; NUM-BAN A KREDIT EGYSEG
+              XBYTEKI  KREDIT_BASE,B,NUM
+              DJNZ   B,MXE2A
+              POP    NUM
+              POP    SNUM
+              POP    B
+              RET
+
+;***************** V E G E **************************
+
+            ORG  8000H
+
+
+MESS3        DB 15, 'RINGER ATTILA'
+
+TIMERTEST    SETB    P17
+             LCALL   TIM1MS
+             CLR     P17
+             LCALL   TIM1MS
+             SJMP    TIMERTEST
+
+; AZ A-REGISZTREBEN BEJOVO KARAKTERT SZINKRON KARAKTEREK UTAN KIADJA
+;>SER_DEBUG
+SER_DEBUG
+            PUSH    A
+            MOV     A,#AAH
+            LCALL   BYTEADAS
+            MOV     A,#55H
+            LCALL   BYTEADAS
+            POP     A
+            LCALL   BYTEADAS
+            RET
+
+
+;>SOROSTESZT
+SOROSTESZT
+STS23       MOV     A,#0AAH
+            CLR TI
+	    MOV C,P
+	    MOV TB8,C
+	    MOV SBUF,A
+bytead51    JNB TI,bytead51
+            CLR TI
+
+            MOV     A,#55H
+            CLR TI
+	    MOV C,P
+	    MOV TB8,C
+	    MOV SBUF,A
+bytead52    JNB TI,bytead52
+            CLR TI
+
+            MOV   R0,#STACK
+            MOV   A,R0
+            CLR TI
+	    MOV C,P
+	    MOV TB8,C
+	    MOV SBUF,A
+bytead53    JNB TI,bytead53
+            CLR TI
+
+            MOV   A,SP
+            CLR TI
+	    MOV C,P
+	    MOV TB8,C
+	    MOV SBUF,A
+bytead54    JNB TI,bytead54
+            CLR TI
+
+
+;            MOV     A,#32H
+;            LCALL   BYTEADAS
+
+     ;        LCALL   TIM1MS
+     ;        SJMP    STS23
+              SJMP    ST2A
+
+ST2         MOV     DPTR,#MESS3
+            MOV     R0,#STACK
+            MOV     B,#20
+ST1         CLR     A
+            MOVC    A,@A+DPTR
+            PUSH    DPL
+            PUSH    DPH
+   ;        MOV     A,B
+            LCALL   BYTEADAS
+            POP     DPH
+            POP     DPL
+            INC     DPTR
+            DJNZ    B,ST1
+            LCALL   TIM10MS
+            SJMP    STS23
+
+ST2A        MOV     R0,#STACK
+            MOV     B,#20H
+ST1A        MOV     A,@R0
+            CLR TI
+	    MOV C,P
+	    MOV TB8,C
+	    MOV SBUF,A
+bytead5     JNB TI,bytead5
+            CLR TI
+            INC R0
+        ;    LCALL   BYTEADAS
+            DJNZ    B,ST1A
+        ;    LCALL   TIM10MS
+             RET
+STS25        SJMP    STS25
+
+
+DEB_HANG     PUSH    A
+             MOV     A,#H_GYOZ0
+             LCALL   H_EFFEKT
+             POP     A
+             RET
+
+     ORG     8100H
+
+; PE -JEL: A SOR FOLYTATASA AZ ELOZO SORNAK
+
+;               +1 +2 +3 +4 +5 +6 +7 +8 +9 +10 +11 +12 +13 +14 +15
+P1T0     DB   0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  1
+P1T2     DB   0, 0, 1, 0, 1, 0, 1, 0, 1, 0,  1,  0,  1,  0,  1,  1
+PE1      DB   0, 1, 0, 1, 1, 0, 1, 1, 1, 0,  1,  1,  0,  1,  1, 1
+P1T1     DB   1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1
+P9T0     DB   1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1,  1,  1,  1,  2
+P0T9     DB   0, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1,  1,  1,  1,  1
+P4T7     DB   1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  2,  2,  3
+P1TX     DB   1, 2, 3, 4, 5, 6, 7, 8, 9, 10,11, 12, 13, 14, 15
+P0T4     DB   0, 0, 1, 0, 1, 0, 0, 1, 0, 1,  0,  0,  1,  0,  1
+P3T1     DB   0, 0, 1, 0, 0, 1, 0, 0, 1, 0,  0,  1,  0,  0,  1, 0, 1
+P0T7     DB   0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0,  1,  1,  0,  1,  1, 1
+P0T8     DB   0, 1, 1, 1, 1, 0, 1, 1, 1, 1,  0,  1,  1,  1,  1
+PE2      DB   0, 1, 1, 1, 1, 1, 0, 1, 1, 1,  1,  1,  1
+         DB   0, 1, 1, 1, 1, 1, 1, 1
+P0T2     DB   0, 0, 0, 0, 1, 0, 0, 0, 0, 1,  0,  0,  0,  0,  1
+P0T3     DB   0, 0, 0, 1, 0, 0, 1, 0, 0, 1,  0,  0,  1
+P0T6     DB   0, 1, 0, 1, 1, 0, 1, 0, 1, 1,  0,  1,  0,  1,  1, 0, 1, 1
+P9T7     DB   0, 1, 1, 0, 1, 1, 1, 0, 1, 1,  1,  0,  1,  1,  1,  1
+PE3      DB   0, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 2
+PE4      DB   1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1, 1, 2, 1, 2
+P8T0     DB   1, 1, 1, 2, 1, 1, 1, 2, 1, 1,  1,  2
+P8T5     DB   0, 1, 0, 1, 1, 0, 1, 1
+P8T2     DB   0, 0, 0, 1, 0, 0, 0, 1, 0, 0,  0,  1, 0, 0, 1
+         DB   0, 0, 0, 1, 0, 0, 1
+P7T9     DB   1, 1, 1, 2, 1, 1, 2
+P7T0     DB   1, 1, 2, 1, 2, 1, 1, 2, 1, 2, 1, 2, 1, 2, 2
+P6T0     DB   1, 2, 2, 1, 2, 2, 1, 2, 2
+P6T9     DB   1, 2, 1, 2, 1, 2, 1, 2, 1, 2
+P5T8     DB   1, 2, 1, 2, 2, 1, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2
+P4T9     DB   2, 2, 2, 3, 3, 2, 3, 3
+P4T0     DB   2, 3, 2, 3, 2, 3,
+P3T8     DB   2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 7, 7, 8
+P5T4     DB   2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 3, 4, 4, 4, 4
+P15T2    DB   0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1
+P11T2    DB   0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
+P13T3    DB   0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1
+P13T5    DB   0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1
+         DB   0, 1, 0, 0, 1, 0, 1, 0, 1
+P14T8    DB   0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1
+
+; ERME - KREDIT ARANY TABLAZATA
+  ORG    8400H
+;KREDIT:  10   |   1   |   2   |   3   |   4   |   5   |    6  |    7  |
+;      |   8   |   9   |  10   |  11   |  12   |  13   |   14  |   15  |
+
+K_0  DW  0,      0,      0,      0,      0,      0,      0,      0
+     DW  0,      0,      0,      0,      0,      0,      0,      0
+
+K_1  DW  0,      P1T1,   P4T7+1, P1TX+2, P1TX+3, P1TX+4, P1TX+5,  P1TX+6
+     DW  P1TX+7, P1TX+8, P1TX+9, P1TX+10,P1TX+11,P1TX+12,P1TX+13, P1TX+14
+
+K_2  DW  0,      P0T9,   P1T1,   P4T7,   P4T7+1, P4T0,   P3T8+1,  P3T8+3
+     DW  P3T8+4, P3T8+6, P3T8+7, P3T8+9, P3T8+10,P3T8+11,P3T8+12, P3T8+13
+
+K_3  DW  0,      P1T0+12,P0T9,   P1T1,   PE4+5,  P4T7,   P4T7+1,  P4T9+1
+     DW  P3T8,   P3T8+1, P3T8+2, P3T8+3, P3T8+4, P3T8+5, P3T8+6,  P3T8+7
+
+K_4  DW  0,      P1T0+11,P1T2+1, P0T9,   P1T1,   P9T0+11,P6T9,    P4T7
+     DW  P4T7+1, P4T9,   P4T0,   P3T8,   P5T4+6, P5T4+8, P5T4+10, P5T4+12
+
+K_5  DW  0,      P1T0+10,P0T4,   P0T6,   P0T9,   P1T1,   P9T0+10, P7T0+5
+     DW  P5T8,   P4T7,   P4T7+1, P5T4+2, P4T9+1, P4T9+2, P5T4+5,  P5T4+6
+
+K_6  DW  0,      P1T0+9, P3T1,   P1T2+1, P0T7+2, P0T9,   P1T1,    P9T0+9
+     DW  PE4+5,  P6T9,   P6T0,   P4T7,   P4T7+1, P5T4+1, P4T7+7,  P4T0
+
+K_7  DW  0,      P1T0+8, P0T3,   P1T2,   P1T2+9, P0T7+11,P0T9,    P1T1
+     DW  P9T0+8, P7T9,   P7T0+5, P7T0+8, P5T8+5, P4T7,   P4T7+1,  P5T4
+
+K_8  DW  0,      P1T0+7, P8T2,   P3T1+9, P1T2+1, P8T5,   P9T7+3,  P0T9
+     DW  P1T1,   P9T0+7, P8T0,   PE4+8,  P6T9,   P5T8,   P5T8+8,  P4T7
+
+K_9  DW  0,      P1T0+6, P13T3+5,P3T1,   P1T2,   P1T2+7, P0T7+2,  P9T7+6
+     DW  P0T9,   P1T1,   P9T0+6, PE3+14, PE4+5,  P7T0+5, P7T0+6,  P6T0
+
+K_10 DW  0,      P1T0+5, P0T2,   P0T3,   P0T4,   P1T2+1, P0T6,    P0T7+8
+     DW  P0T8,   P0T9,   P1T1,   P9T0+5, PE3+9,  PE4+4,  P7T0,    P6T9
+
+K_11 DW  0,      P1T0+4, P11T2+6,P8T2+4, P3T1+6, P1T2,   P1T2+5,  P0T7
+     DW  P9T7,   P0T8+10,P0T9,   P1T1,   P9T0+4, PE3+8,  PE4,     PE4+5
+
+K_12 DW  0,      P1T0+3, P11T2,  P8T2,   P3T1,   P13T5+3,P1T2+1,  P1T2+9
+     DW  P0T7+2, P9T7+3, PE2,    P0T9,   P1T1,   P9T0+3, PE3+2,   P8T0
+
+K_13 DW  0,      P1T0+2, P15T2+8,P13T3+5,P0T3,   P13T5,  P1T2,    P1T2+3
+     DW  P0T6+5, P0T7+5, P9T7+3, PE2,    P0T9,   P1T1,   P9T0+2,  PE3+1
+
+K_14 DW  0,      P1T0+1, P15T2+1,P13T3,  P8T2+8, P3T1+3, P13T5+8, P1T2+1
+     DW  P14T8,  P0T7,   PE1+2,  P9T7+7, PE2+6,  P0T9,   P1T1,    P9T0+1
+
+K_15 DW  0,      P1T0,   P15T2,  P0T2,   P8T2,   P3T1,   P0T4,    P1T2
+     DW  P1T2+1, P0T6,   P0T7+2, P9T7,   P0T8,   PE2+6,  P0T9,    P1T1
+
+; INDIREKT CIMZES - CIMCSERE RUTIN
+; BEJOVO ADAT: A-BAN A ERM_KRED ARANY
+; KIMENO ADAT: DPTR-BEN A KREDIT FOLYAM CIME
+;>XCH_ADDR
+XCH_ADDR   PUSH   AREG
+           MOV    AREG,A               ; ELMENTJUK KESOBBRE
+           MOV    DPTR,#K_0            ; TABLAZAT KEZDOCIME
+           ANL    A,#0F0H              ; FELSO TETRAD MARAD (ERMESZAM)
+           CLR    C                    ; CARRY TORLESE
+           RLC    A                    ; SZOROZVA 2 -VEL (32-VEL)
+           JNC    XCH1                 ; HA NEM VOLT CARRY, UGRAS
+           INC    DPH
+XCH1       ADD    A,DPL                ; HOZZAADJUK A CIMHEZ
+           MOV    DPL,A                ; VISSZATOLTJUK
+       ;   MOV    A,DPH               ; NEM LESZ CARRY
+       ;   ADDC   A,#0
+       ;   MOV    DPH,A                ; ESETLEGES CARRY-T IS HOZZA
+           MOV    A,AREG
+           ANL    A,#0FH               ; FELSO TETRAD MARAD (KREDIT)
+           RL     A                    ; SZOROZZUK KETTOVEL
+           ADD    A,DPL                ; HOZZA A CIMHEZ
+           MOV    DPL,A
+           MOV    A,DPH
+           ADDC   A,#0
+           MOV    DPH,A                ; DPTR-BEN A CIM, ELTOLASSAL
+           CLR    A
+           MOVC   A,@A+DPTR
+           MOV    AREG,A
+           MOV    A,#1
+           MOVC   A,@A+DPTR
+           MOV    DPL,A
+           MOV    DPH,AREG
+           POP    AREG
+           RET
+
+
+; IDOZITO RUTINOK ERMEFIGYELESSEL EGYBEKOTVE
+;>WAIT_COIN_500
+
+WAIT_COIN_500    PUSH   B
+                 MOV    B,#50
+W_C1             LCALL  TIM10MS
+                 LCALL  COIN
+                 DJNZ   B,W_C1
+                 POP    B
+                 RET
+
+WAIT_COIN_100    PUSH   B
+                 MOV    B,#10
+W_C2             LCALL  TIM10MS
+                 LCALL  COIN
+                 DJNZ   B,W_C2
+                 POP    B
+                 RET
+
+WAIT_COIN_35     PUSH   B
+                 MOV    B,#35
+W_C3             LCALL  TIM1MS
+                 LCALL  COIN
+                 DJNZ   B,W_C3
+                 POP    B
+                 RET
+
+WAIT_COIN_10     PUSH   B
+                 MOV    B,#10
+W_C4             LCALL  TIM1MS
+                 LCALL  COIN
+                 DJNZ   B,W_C4
+                 POP    B
+                 RET
+
+;>P_TES
+P_TES           MOV       DPTR,#6543H
+                MOV       A,#65H
+                MOVX      @DPTR,A
+                MOV       P2,DPH
+                MOV       R0,DPL
+                MOVX      A,@R0
+             ;  MOV       A,P2
+                LCALL     P_DISP
+                RET
+
+
+; A BEALLITOTT ERME KREDIT ARANY ALAPJAN A KREDIT FOLYAM LEPESEIT BETOLTI
+; BEJOVO ADAT: NINCS
+; KIMENO ADAT: FELTOLTOTT KREDIT FOLYAM TABLAZAT
+;>P_DISP
+
+P_DISP      PUSH  A
+            PUSH  JNUM
+            MOV NUM,A
+            MOV SNUM,#0AH
+            MOV JNUM,#8
+            LCALL      PONTSZAM
+            LCALL      DARTKIJ
+            LCALL      TIM500MS
+            POP        JNUM
+            POP        A
+            RET
+
+;>KRED_TOLT
+KRED_TOLT
+           PUSH     CREG
+           PUSH     B
+           MOV      CREG,#1            ; MIND A 6 CSATORNARA
+KDF1A      XRBYTE   ERM_BASE,CREG     ; A-BA AZ ARANYSZAMOT
+      ;    LCALL    P_DISP
+           LCALL    XCH_ADDR
+           PUSH     DPL
+           PUSH     DPH
+           MOV      DPTR,#KR_FL_CONV    ; A KR_FLOW MEZO LEENDO CIME
+           MOV      A,CREG
+           MOVC     A,@A+DPTR          ; A-BAN A CIM LSB
+     ;     LCALL    P_DISP
+           MOV      R0,A
+           MOV      P2,#KRED_MSB       ; TERULET KEZDETENEK FELSO BYTE-JA
+           POP      DPH
+           POP      DPL
+           MOV      B,#0FH             ; CIKLUSSZAMLALO
+KDF1       CLR      A                  ; ELTOLAS NULLAZASA
+           MOVC     A,@A+DPTR          ; BYTE BEOLVASAS
+           MOVX     @R0,A              ; ATIRAS A CEL TERULETRE
+           INC      DPTR
+           INC      R0
+           DJNZ     B,KDF1             ; BAL OLDALI RENDBEN VAN
+           MOV      A,CREG
+           ADD      A,#1
+           MOV      CREG,A              ; MEGNOVELT SZAM VISSZA A CREG-BE
+           CJNE     A,#7,KDF1A          ; MIND A HAT CSATORNARA
+           POP      B
+           POP      CREG
+           RET
+
+
+; HIBAUZENET IDEJERE ELMENTI A KOZEPSO KIJELZOKET
+;>SAVE_ERR_DISP
+SAVE_ERR_DISP
+
+
+; KEPERNYO MENTES HIBAUZERNET KIIRATAS IDEJERE
+;>SAVE_DISP
+
+SAVE_DISP       PUSH    B
+                MOV     B,#110      ; ALSO -FELSO TERULETET
+                MOV     R0,#DF_BUF   ; FORRAS TERULET KEZDOCIME
+                MOV     DPTR,#S_DISP  ; CEL TERULET KEZDOCIME
+SDP1            MOV     A,@R0
+                MOVX    @DPTR,A
+                INC     R0
+                INC     DPTR
+                DJNZ    B,SDP1
+                POP     B
+                RET
+
+LOAD_DISP       PUSH    B
+                MOV     B,#110      ; ALSO -FELSO TERULETET
+                MOV     R0,#DF_BUF   ; FORRAS TERULET KEZDOCIME
+                MOV     DPTR,#S_DISP  ; CEL TERULET KEZDOCIME
+SDP2            MOVX    A,@DPTR
+                MOV     @R0,A
+                INC     R0
+                INC     DPTR
+                DJNZ    B,SDP2
+                POP     B
+                RET
+
+
+; MEMORIA VALTOZOK TERULETET MENTI ESETLEGES REPLAY MODHOZ
+;>SAVE_VARS
+SAVE_VARS       PUSH    B
+                PUSH    AREG
+                CLR     EA              ; NE LEGYEN MEGSZAKITAS
+                SETB    REP_MEGINT
+                MOV     DPTR,#6400H     ; FORRAS MEMORIA CIME
+                MOV     B,#10H          ; 800H BYTE MOZOG
+SVAR2           MOV     AREG,#80H       ; A BYTE MOZGATAST
+SVAR1           MOVX    A,@DPTR         ; BEOLVASAS A FORRAS TERULETROL
+                XRL     DPH,#30H        ; 6-BOL 5 LESZ, 5-BOL 6 A DPH-BAN
+                MOVX    @DPTR,A         ; KIMENTES A CEL TERULETRE
+                XRL     DPH,#30H        ; DPH VISSZAALLITAS (6-OSRA)
+                INC     DPTR
+                DJNZ    AREG,SVAR1      ; BELSO CIKLUS VEGE
+                DJNZ    B,SVAR2
+                XBYTEKI OLD_AKTKOR,#0,AKTKOR  ; AKTKOR MENTESE
+                SETB    EA
+                POP     AREG
+                POP     B
+                RET
+
+;>LOAD_VARS
+LOAD_VARS       PUSH    B
+                PUSH    AREG
+                CLR     EA
+                CLR     REP_MEGINT      ;
+                MOV     DPTR,#5400H     ; FORRAS MEMORIA CIME
+                MOV     B,#10H            ; 800H BYTE MOZOG
+LVAR2           MOV     AREG,#80H      ; 256-SZOR A BYTE MOZGATAST
+LVAR1           MOVX    A,@DPTR         ; BEOLVASAS A FORRAS TERULETROL
+                XRL     DPH,#30H        ; 6-BOL 5 LESZ, 5-BOL 6 A DPH-BAN
+                MOVX    @DPTR,A         ; KIMENTES A CEL TERULETRE
+                XRL     DPH,#30H        ; DPH VISSZAALLITAS (6-OSRA)
+                INC     DPTR
+                DJNZ    AREG,LVAR1      ; BELSO CIKLUS VEGE
+                DJNZ    B,LVAR2
+                SETB    EA
+                POP     AREG
+                POP     B
+                RET
+
+
+           .INCLUDE DARTEST8.INC
+
+; TELEFON
+; LET'S PLAY DART - SZOVEG
+LETSP        DB     0H, 0H, 0H                               ; KEZDO SZUNET
+             DB     1CH,  9FH, 1FH, 04H, 0B6H                ; LET'S
+             DB     00H, 0CEH, 1CH, 0EEH, 76H,  0H           ; PLAY
+             DB     00H, 9FH,  38H, 0AH,  3AH,  02H          ; EURO
+             DB     7AH, 0EEH, 0AH,  1FH, 0H, 0H,            ; DART
+;            DB     1FH, 9FH, 1CH, 02H, FCH, BEH, 02H        ; TEL-06-
+
+;             DB     F2H, FCH, 02H, 66H, FCH, FCH, 02H        ; 30-400-
+;             DB     B6H, FCH, 66H, 0H                        ; 504
+
+; ROMAN TELEFONSZAM
+             DB     1FH, 9FH, 1CH, 02H, FCH, F6H, DAH        ; TEL-092
+
+             DB     02H, BEH, FFH, BEH, 02H, FFH, 60H        ; -686-81
+             DB     BEH, 0H, 0H, 0H                          ; 604
+
+; MAGYAR TELEFONSZAM,  EZ AZ ELES
+;            DB     F2H, FCH, 02H, F2H, FFH, B6H, 02H        ; 30-385-
+;            DB     66H, DAH, 60H, 0H                        ; 421
+
+;            DB     F2H, FCH, 02H, B6H, E0H, FCH, 02H        ; 30-570-
+;            DB     60H, F6H, FCH, 0H                        ; 190
+
+             DB     0H, 0H, 0H, 0H                           ; BEF. SZUNET
+
+
+; 21 BYTE
+; MOST MAR 47 BYTE
+
+SZORZO    DB     1, 1, 1, 1, 1, 1, 1, 1, 2, 3, 3
+
+;>RANDSORS
+RANDSORS        PUSH	PSW             ; A HASZNALT REGISZTEREK ELMENTESE
+                PUSH    B
+                CLR     EA
+                MOV     A,CTPONT        ; HA NULLA PONTOS, KILEP
+             ;  LCALL   P_DISP
+                JZ      RDS1
+                MOV     B,#20           ; A MEZO SZAMA
+		MOV	PSW,#rbank1
+                MOV     A,R5            ; R5-BEN VELETLEN SZAM (1-200)
+                DIV     AB
+                MOV     DPTR,#SZORZO
+                MOVC    A,@A+DPTR       ; SZORZO ERTEK MEGHATAROZAS
+                MOV     DREG,A          ; DREG-BE A SZORZO
+                MOV     A,B             ; A- BA A MARADEKOT
+                INC     A               ; NOVELJUK, HOGY 1-EL KEZDODJON
+                MOV     CTPONT,A
+                CJNE    A,#21,RDS1      ; HA NEM BULL, UGRAS
+                MOV     A,DREG          ; A SZORZOT IS MEGNEZZUK
+                CJNE    A,#1,RDS2       ; HA NEM SZIMPLA, UGRIK
+                MOV     CTPONT,#25H     ; SZIMPLA BULL
+                MOV     DREG,#4
+                SJMP    RDS1            ; BULLEYE, 25 PONT
+RDS2            MOV     CTPONT,#50H
+                MOV     DREG,#8         ; BELSO BULLEYE, 50 PONT
+
+RDS1            SETB    EA
+                POP     B
+		POP	PSW
+		RET
+
+
+; ARAMSZUNET ESETEN VISSZAALLITAS RUTINJAI
+
+;>ST_SAVE
+ST_SAVE          CLR     EA         ;     NE LEGYEN MEGSZAKITAS
+              ;  POP     B
+              ;  PUSH    B
+              ;  POP     AKTKOR
+              ;  PUSH    AKTKOR
+              ;  MOV       AKTKOR,B
+              ;  LCALL     KORSZAM          ; KORSZAM IS KIIRATVA
+              ;  LCALL     DARTKIJ
+              ;  LCALL     TIM500MS
+              ;  MOV       AKTKOR,B
+              ;  LCALL     KORSZAM          ; KORSZAM IS KIIRATVA
+              ;  LCALL     DARTKIJ
+              ;  LCALL     TIM500MS
+
+                ;SRAM MENTESE 6400-72FF CIMTARTOMANYT MENTI
+                MOV     DPTR,#SRAM_BEG   ; FORRAS TERULET KEZDOCIME
+SRA_SA1         MOVX    A,@DPTR          ; BYTE BEOLVASAS
+                ANL     DPH,#11011111B   ; A5 CIMBIT TORLESE
+                MOVX    @DPTR,A          ; BYTE KIIRASA A CEL TERULETRE
+                ORL     DPH,#00100000B   ; A5 CIMBIT VISSZAALLITASA
+                INC     DPTR             ; CIMMUTATO NOVELESE
+                MOV     A,#73H           ; DPH 73H-IG MEHET
+                CJNE    A,DPH,SRA_SA1    ; HA NEM ERTE EL, VISSZA
+
+               ; BELSO RAM KIMENTES
+                MOV    PSW,#RBANK0
+		MOV     DPTR,#ST_BRAM
+		MOV	R0,#0FFH        ; FFH-TOL LEFELE (INDIREKT TER. IS)
+BRAM_SAVE	MOV	A,@R0           ; ELOSZOR AZ A-REGBE
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+		DJNZ	R0,BRAM_SAVE    ; BELSO RAM KIMENTVE
+
+                MOV     A,SP
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,TCON
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,TMOD
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,TL0
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,TL1
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,TH0
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,TH1
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,P1
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,PCON
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,SCON
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,SBUF
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,SP            ; STACK POINTER
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+;               MOV     A,IE
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,P3
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+;               MOV     A,IP
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,T2CON
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,RCAP2L
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,RCAP2H
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,TL2
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,TH2
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,PSW
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOV     A,B
+                MOVX    @DPTR,A         ; KI A RAM-BA
+                INC     DPTR            ; CIMMUTATO NOVELES
+            ;    LCALL   SOROSTESZT
+                MOV      DPTR,#ST_FLAG     ;
+                MOV      A,#ST_JATKOZ
+                MOVX     @DPTR,A          ; FLAG JELZES
+                SETB    EA
+                RET
+
+
+;>ST_LOAD
+ST_LOAD         CLR     EA
+                MOV     DPTR,#ST_SRAM    ; FORRAS TERULET KEZDOCIME
+SRA_LO1         MOVX    A,@DPTR          ; BYTE BEOLVASAS
+                ORL     DPH,#00100000B   ; A5 CIMBIT VISSZAALLITASA
+                MOVX    @DPTR,A          ; BYTE KIIRASA A CEL TERULETRE
+                ANL     DPH,#11011111B   ; A5 CIMBIT TORLESE
+                INC     DPTR             ; CIMMUTATO NOVELESE
+                MOV     A,#53H           ; DPH 73H-IG MEHET
+                CJNE    A,DPH,SRA_LO1    ; HA NEM ERTE EL, VISSZA
+
+   ; BELSO RAM BEOLVASAS (0 - 7f)
+                MOV      PSW,#RBANK0
+		MOV     DPTR,#ST_BRAM
+		MOV	R0,#0FFH        ; FFH-TOL LEFELE (INDIREKT TER. IS)
+BRAM_LOAD	MOVX	A,@DPTR         ; ELOSZOR AZ A-REGBE OLVASSUK BE
+                MOV     @R0,A           ; INDIREKT CIMZESSEL
+                INC     DPTR            ; CIMMUTATO NOVELES
+		DJNZ	R0,BRAM_LOAD    ; BELSO RAM KIMENTVE
+
+                MOVX    A,@DPTR         ; UTANA A TOBBI REGISZTERT IS BE
+                MOV     SP,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR         ;
+         ;      MOV     TCON,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+         ;       MOV     TMOD,A
+                INC     DPTR             ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+                MOV     TL0,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+                MOV     TL1,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+          ;      MOV     TH0,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+           ;     MOV     TH1,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+                MOV     P1,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+            ;    MOV     PCON,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+            ;    MOV     SCON,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+                MOV     SBUF,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+            ;   MOV     SP,A            ; STACK POINTER
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+           ;     MOV     IE,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+           ;     MOV     P3,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+           ;     MOV     IP,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+             ;   MOV     T2CON,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+            ;    MOV     RCAP2L,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+            ;    MOV     RCAP2H,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+                MOV     TL2,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+                MOV     TH2,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+                MOV     PSW,A
+                INC     DPTR            ; CIMMUTATO NOVELES
+                MOVX    A,@DPTR
+                MOV     B,A
+
+             ;   POP     AKTKOR
+             ;   PUSH    AKTKOR
+             ;  MOV       AKTKOR,SP
+             ;   LCALL     KORSZAM          ; KORSZAM IS KIIRATVA
+             ;   LCALL     DARTKIJ
+             ;   LCALL     TIM500MS
+
+;                LJMP    VALTO
+;                LCALL    SOROSTESZT
+                LCALL     DARTKIJ
+                LCALL     TIM100MS      ; IDOKESLELTETES
+                LCALL     TIM100MS      ; IDOKESLELTETES
+                MOV       A,#H_ELEM         ; FIGYELMEZTETO HANG
+                LCALL     H_EFFEKT
+
+                MOV   A,SL1DATA         ; ELENGEDTEK, KI LEHET LEPNI
+                WRITE1                  ; MEGELOZO ADATOK VISSZATOLTESE
+                MOV   A,SL2DATA
+                WRITE2
+                SETB     EA
+                RET
+
+
+        .INCLUDE DRTSTP81.INC	   ; SETUP BEALLITASOK KULON FILE-BAN
+	.INCLUDE SOUND7.INC        	; ZENEKEZELES KULON FILE-BAN
+        .INCLUDE ARITMET7.INC
